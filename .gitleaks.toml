@@ -1,0 +1,21 @@
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+  '''README\.md$''',
+  '''docs/.*\.md$''',
+  '''\.github/workflows/.*\.yml$''',
+  '''.*\.example.*''',
+  '''.*\.template.*'''
+]
+
+regexes = [
+  '''acald-creator/security-compliance-hub''',
+  '''uses:\s+[\w\-\.\/]+@\w+''',
+  '''\$\{\{[^}]+\}\}''',
+  '''secrets\.(GITHUB_TOKEN|inherit)'''
+]

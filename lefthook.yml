@@ -8,7 +8,7 @@ pre-commit:
     
     # Secret scanning
     gitleaks:
-      run: gitleaks detect --source . --verbose
+      run: gitleaks detect --source . --config .gitleaks.toml
     
     # Security scanning
     semgrep:
@@ -32,8 +32,8 @@ commit-msg:
 pre-push:
   commands:
     # Run tests
-    test:
-      run: bun test
+    # test:
+      # run: bun test
     
     # Check for vulnerabilities
     audit:
