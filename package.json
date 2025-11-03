@@ -1,0 +1,20 @@
+{
+	"name": "security-compliance-hub",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"audit:all": "bun scripts/compliance-dashboard.ts",
+		"report": "./scripts/generate-compliance-report.sh",
+		"scan:local": "./scanners/full-scan.sh",
+		"setup:repo": "./scripts/setup-repo-security.sh",
+		"update:policies": "./scripts/update-security-baseline.sh"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.3",
+		"@types/bun": "latest",
+		"lefthook": "^2.0.2"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	}
+}

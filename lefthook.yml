@@ -1,0 +1,83 @@
+pre-commit:
+  parallel: true
+  commands:
+    # Biome for formatting/linting
+    biome:
+      glob: "*.{js,jsx,ts,tsx,json}"
+      run: bunx @biomejs/biome check {staged_files}
+    
+    # Secret scanning
+    gitleaks:
+      run: gitleaks detect --source . --verbose
+    
+    # Security scanning
+    semgrep:
+      glob: "*.{js,ts,py,go}"
+      run: semgrep --config=auto {staged_files}
+
+commit-msg:
+  commands:
+    # Option 1: If using bash script
+    # conventional-commit:
+    #  run: ./hooks/commit-msg.sh {1}
+    
+    # Option 2: If using commitlint
+    # commitlint:
+    #   run: bunx commitlint --edit {1}
+    
+    # Option 3: If Cocogitto is installed globally
+    # cocogitto:
+    #   run: cog verify {1}
+
+pre-push:
+  commands:
+    # Run tests
+    test:
+      run: bun test
+    
+    # Check for vulnerabilities
+    audit:
+      run: bun audit
+
+# EXAMPLE USAGE:
+#
+#   Refer for explanation to following link:
+#   https://lefthook.dev/configuration/
+#
+# pre-push:
+#   jobs:
+#     - name: packages audit
+#       tags:
+#         - frontend
+#         - security
+#       run: yarn audit
+#
+#     - name: gems audit
+#       tags:
+#         - backend
+#         - security
+#       run: bundle audit
+#
+# pre-commit:
+#   parallel: true
+#   jobs:
+#     - run: yarn eslint {staged_files}
+#       glob: "*.{js,ts,jsx,tsx}"
+#
+#     - name: rubocop
+#       glob: "*.rb"
+#       exclude:
+#         - config/application.rb
+#         - config/routes.rb
+#       run: bundle exec rubocop --force-exclusion {all_files}
+#
+#     - name: govet
+#       files: git ls-files -m
+#       glob: "*.go"
+#       run: go vet {files}
+#
+#     - script: "hello.js"
+#       runner: node
+#
+#     - script: "hello.go"
+#       runner: go run

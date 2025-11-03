@@ -1,0 +1,200 @@
+# .github/workflows/devsecops-infinity.yml
+name: DevSecOps Infinity Loop
+
+on:
+  workflow_call:
+    inputs:
+      phase:
+        description: 'Current phase in DevSecOps loop'
+        required: true
+        type: string
+
+jobs:
+  # ♾️ PLAN - Threat Modeling & Security Requirements
+  plan-phase:
+    if: inputs.phase == 'plan' || inputs.phase == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for Threat Model
+        run: |
+          if [ ! -f "docs/THREAT_MODEL.md" ]; then
+            echo "❌ Missing threat model documentation"
+            exit 1
+          fi
+      
+      - name: Validate Security Requirements
+        run: |
+          if [ ! -f "docs/SECURITY_REQUIREMENTS.md" ]; then
+            echo "⚠️ Warning: No security requirements documented"
+          fi
+      
+      - name: Check ADRs for Security Decisions
+        run: |
+          if ls docs/adr/*security*.md 1> /dev/null 2>&1; then
+            echo "✅ Security ADRs found"
+          else
+            echo "⚠️ No security-related ADRs found"
+          fi
+
+  # ♾️ CODE - Secure Coding & Pre-commit Hooks
+  code-phase:
+    if: inputs.phase == 'code' || inputs.phase == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Verify Pre-commit Hooks
+        run: |
+          if [ -f "lefthook.yml" ] || [ -f ".pre-commit-config.yaml" ]; then
+            echo "✅ Pre-commit hooks configured"
+          else
+            echo "❌ No pre-commit hooks found"
+            exit 1
+          fi
+      
+      - name: Check Code Signing
+        run: |
+          git log --show-signature -1 || echo "⚠️ Commit not signed"
+      
+      - name: Run Security Linters
+        run: |
+          # Run Biome for JS/TS
+          if [ -f "biome.json" ]; then
+            bunx @biomejs/biome check .
+          fi
+
+  # ♾️ BUILD - Secure Build & SBOM Generation
+  build-phase:
+    if: inputs.phase == 'build' || inputs.phase == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.json
+      
+      - name: Scan Dependencies
+        run: |
+          # Use the appropriate scanner for the language
+          if [ -f "package.json" ]; then
+            bunx audit-ci --moderate
+          elif [ -f "go.mod" ]; then
+            go list -json -m all | nancy sleuth
+          fi
+      
+      - name: Build Provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+
+  # ♾️ TEST - Security Testing
+  test-phase:
+    if: inputs.phase == 'test' || inputs.phase == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Security Tests
+        run: |
+          # Run security-focused tests
+          if [ -f "tests/security" ]; then
+            bun test tests/security
+          fi
+      
+      - name: DAST Scan
+        if: contains(github.event.head_commit.modified, 'docker-compose')
+        uses: zaproxy/action-full-scan@v0.7.0
+        with:
+          target: 'http://localhost:3000'
+
+  # ♾️ RELEASE - Signing & Attestation
+  release-phase:
+    if: inputs.phase == 'release' || inputs.phase == 'all'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      
+      - name: Sign Artifacts
+        run: |
+          # Sign container images if they exist
+          if [ -f "Dockerfile" ]; then
+            cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+          fi
+      
+      - name: Create Attestations
+        run: |
+          cosign attest --yes \
+            --predicate sbom.json \
+            --type spdx \
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+
+  # ♾️ DEPLOY - Secure Deployment
+  deploy-phase:
+    if: inputs.phase == 'deploy' || inputs.phase == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Verify Image Signatures
+        run: |
+          cosign verify \
+            --certificate-identity-regexp ".*" \
+            --certificate-oidc-issuer-regexp ".*" \
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+      
+      - name: Policy Validation
+        run: |
+          # Validate against OPA policies
+          opa eval -d policies/opa/ -i deployment.json "data.deployment.allow"
+
+  # ♾️ OPERATE - Runtime Security
+  operate-phase:
+    if: inputs.phase == 'operate' || inputs.phase == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy Security Monitoring
+        run: |
+          echo "Deploying Falco rules..."
+          # kubectl apply -f monitoring/falco-rules.yaml
+      
+      - name: Configure Network Policies
+        run: |
+          echo "Applying network policies..."
+          # kubectl apply -f policies/network-policies.yaml
+
+  # ♾️ MONITOR - Continuous Monitoring
+  monitor-phase:
+    if: inputs.phase == 'monitor' || inputs.phase == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check Vulnerability Alerts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const alerts = await github.rest.dependabot.listAlertsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            if (alerts.data.length > 0) {
+              core.warning(`Found ${alerts.data.length} open vulnerability alerts`);
+            }
+      
+      - name: Security Metrics
+        run: |
+          # Collect and report security metrics
+          echo "Collecting security metrics..."

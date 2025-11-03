@@ -1,0 +1,323 @@
+# .github/workflows/security-scan.yml
+name: Security Compliance Suite
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        description: 'Repository to scan'
+        required: false
+        type: string
+        default: ${{ github.repository }}
+      severity-threshold:
+        description: 'Minimum severity to fail the build'
+        required: false
+        type: string
+        default: 'HIGH'
+      compliance-frameworks:
+        description: 'Compliance frameworks to check (comma-separated)'
+        required: false
+        type: string
+        default: 'openssf,owasp,slsa'
+      enable-signing:
+        description: 'Enable Sigstore signing'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      SNYK_TOKEN:
+        required: false
+      SONAR_TOKEN:
+        required: false
+    outputs:
+      security-score:
+        description: 'Overall security score'
+        value: ${{ jobs.aggregate-results.outputs.score }}
+      compliance-status:
+        description: 'Compliance check results'
+        value: ${{ jobs.aggregate-results.outputs.compliance }}
+      vulnerabilities:
+        description: 'Vulnerability summary'
+        value: ${{ jobs.aggregate-results.outputs.vulnerabilities }}
+
+jobs:
+  # 🔍 Secret Scanning
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+  # 🛡️ SAST - Static Application Security Testing
+  sast-scan:
+    name: SAST Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/owasp-top-ten
+            p/r2c-security-audit
+            ./policies/semgrep/
+          generateSarif: true
+      
+      - name: Run CodeQL
+        uses: github/codeql-action/analyze@v3
+        with:
+          languages: ${{ matrix.language }}
+      
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  # 📦 Dependency Scanning
+  dependency-scan:
+    name: Dependency Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: ${{ github.repository }}
+          path: '.'
+          format: 'ALL'
+          args: >
+            --enableRetired
+            --enableExperimental
+            --failOnCVSS 7
+      
+      - name: Run Snyk
+        if: ${{ secrets.SNYK_TOKEN }}
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=${{ inputs.severity-threshold }}
+      
+      - name: OSV Scanner
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            --recursive
+            --skip-git
+            ./
+
+  # 🐳 Container Scanning
+  container-scan:
+    name: Container Security
+    runs-on: ubuntu-latest
+    if: contains(fromJSON('["Dockerfile", "docker-compose.yml"]'), github.event.head_commit.modified)
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+      
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+  # 🔏 SLSA Provenance & Sigstore
+  supply-chain:
+    name: Supply Chain Security
+    runs-on: ubuntu-latest
+    if: ${{ inputs.enable-signing }}
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+      
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+      
+      - name: Sign SBOM
+        run: |
+          cosign sign-blob --yes \
+            --output-signature sbom.spdx.json.sig \
+            --output-certificate sbom.spdx.json.crt \
+            sbom.spdx.json
+      
+      - name: Generate SLSA Provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+        with:
+          base64-subjects: "${{ github.sha }}"
+
+  # 📊 OpenSSF Scorecard
+  openssf-scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    if: contains(inputs.compliance-frameworks, 'openssf')
+    permissions:
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@v2.3.1
+        with:
+          results_file: scorecard.json
+          results_format: json
+          publish_results: true
+      
+      - name: Upload to Security Tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scorecard.sarif
+
+  # ✅ OWASP Compliance
+  owasp-check:
+    name: OWASP Compliance
+    runs-on: ubuntu-latest
+    if: contains(inputs.compliance-frameworks, 'owasp')
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: OWASP ZAP Baseline Scan
+        if: contains(github.event.head_commit.modified, 'docker-compose.yml')
+        uses: zaproxy/action-baseline@v0.10.0
+        with:
+          target: 'http://localhost:8080'
+          allow_issue_writing: false
+      
+      - name: OWASP Dependency Check
+        run: |
+          docker run --rm \
+            -v $(pwd):/src \
+            owasp/dependency-check \
+            --scan /src \
+            --format JSON \
+            --out /src/dependency-check-report.json
+
+  # 🏁 Aggregate Results
+  aggregate-results:
+    name: Security Score & Compliance
+    runs-on: ubuntu-latest
+    needs: [secret-scan, sast-scan, dependency-scan, container-scan, openssf-scorecard, owasp-check]
+    if: always()
+    outputs:
+      score: ${{ steps.calculate.outputs.score }}
+      compliance: ${{ steps.calculate.outputs.compliance }}
+      vulnerabilities: ${{ steps.calculate.outputs.vulnerabilities }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Calculate Security Score
+        id: calculate
+        run: |
+          # Aggregate all security findings
+          SCORE=0
+          TOTAL_CHECKS=0
+          
+          # Calculate weighted score
+          if [ "${{ needs.secret-scan.result }}" == "success" ]; then
+            SCORE=$((SCORE + 20))
+          fi
+          TOTAL_CHECKS=$((TOTAL_CHECKS + 20))
+          
+          if [ "${{ needs.sast-scan.result }}" == "success" ]; then
+            SCORE=$((SCORE + 25))
+          fi
+          TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
+          
+          if [ "${{ needs.dependency-scan.result }}" == "success" ]; then
+            SCORE=$((SCORE + 25))
+          fi
+          TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
+          
+          if [ "${{ needs.container-scan.result }}" == "skipped" ] || [ "${{ needs.container-scan.result }}" == "success" ]; then
+            SCORE=$((SCORE + 15))
+          fi
+          TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
+          
+          if [ "${{ needs.openssf-scorecard.result }}" == "success" ]; then
+            SCORE=$((SCORE + 15))
+          fi
+          TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
+          
+          FINAL_SCORE=$((SCORE * 100 / TOTAL_CHECKS))
+          echo "score=$FINAL_SCORE" >> $GITHUB_OUTPUT
+          
+          # Generate compliance status
+          COMPLIANCE_STATUS='{
+            "openssf": "${{ needs.openssf-scorecard.result }}",
+            "owasp": "${{ needs.owasp-check.result }}",
+            "slsa": "${{ needs.supply-chain.result }}"
+          }'
+          echo "compliance=$COMPLIANCE_STATUS" >> $GITHUB_OUTPUT
+      
+      - name: Generate Security Report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const score = ${{ steps.calculate.outputs.score }};
+            const badge = score >= 80 ? '🟢' : score >= 60 ? '🟡' : '🔴';
+            
+            const comment = `## ${badge} Security Scan Results
+            
+            **Overall Score:** ${score}/100
+            
+            ### Compliance Status
+            - OpenSSF Scorecard: ${{ needs.openssf-scorecard.result }}
+            - OWASP Compliance: ${{ needs.owasp-check.result }}
+            - Supply Chain Security: ${{ needs.supply-chain.result }}
+            
+            ### Security Checks
+            - 🔍 Secret Scanning: ${{ needs.secret-scan.result }}
+            - 🛡️ SAST Analysis: ${{ needs.sast-scan.result }}
+            - 📦 Dependency Scan: ${{ needs.dependency-scan.result }}
+            - 🐳 Container Security: ${{ needs.container-scan.result }}
+            
+            [View Full Report](https://github.com/${{ github.repository }}/security)`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
