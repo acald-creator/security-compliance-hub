@@ -171,10 +171,24 @@ jobs:
             --output-certificate sbom.spdx.json.crt \
             sbom.spdx.json
       
-      - name: Generate SLSA Provenance
-        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v3
         with:
-          base64-subjects: "${{ github.sha }}"
+          name: sbom
+          path: |
+            sbom.spdx.json
+            sbom.spdx.json.sig
+            sbom.spdx.json.crt
+
+  generate-slsa-provenance:
+    name: Generate SLSA Provenance
+    needs: supply-chain
+    if: ${{ inputs.enable-signing }}
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+    with:
+      base64-subjects: "${{ github.sha }}"
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # 📊 OpenSSF Scorecard
   openssf-scorecard:
@@ -261,25 +275,39 @@ jobs:
             SCORE=$((SCORE + 25))
           fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
-          
           if [ "${{ needs.container-scan.result }}" == "skipped" ] || [ "${{ needs.container-scan.result }}" == "success" ]; then
             SCORE=$((SCORE + 15))
           fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
-          
+
           if [ "${{ needs.openssf-scorecard.result }}" == "success" ]; then
             SCORE=$((SCORE + 15))
           fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
+
+          # Only access supply-chain results when signing is enabled to avoid invalid context
+          if [ "${{ inputs.enable-signing }}" = "true" ]; then
+            if [ "${{ needs.supply-chain.result }}" == "success" ]; then
+              SCORE=$((SCORE + 15))
+            fi
+            TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
+          fi
           
           FINAL_SCORE=$((SCORE * 100 / TOTAL_CHECKS))
           echo "score=$FINAL_SCORE" >> $GITHUB_OUTPUT
           
           # Generate compliance status
+          # Determine SLSA/compliance state in a guarded way
+          if [ "${{ inputs.enable-signing }}" = "true" ]; then
+            SLSA_STATUS="${{ needs.supply-chain.result }}"
+          else
+            SLSA_STATUS="not_requested"
+          fi
+
           COMPLIANCE_STATUS='{
             "openssf": "${{ needs.openssf-scorecard.result }}",
             "owasp": "${{ needs.owasp-check.result }}",
-            "slsa": "${{ needs.supply-chain.result }}"
+            "slsa": "'"$SLSA_STATUS"'"
           }'
           echo "compliance=$COMPLIANCE_STATUS" >> $GITHUB_OUTPUT
       
