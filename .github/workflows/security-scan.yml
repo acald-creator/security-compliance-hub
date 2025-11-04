@@ -29,6 +29,9 @@ on:
         required: false
       SONAR_TOKEN:
         required: false
+      GITHUB_TOKEN:
+        description: 'Token to perform repository operations (passed from caller)'
+        required: false
     outputs:
       security-score:
         description: 'Overall security score'

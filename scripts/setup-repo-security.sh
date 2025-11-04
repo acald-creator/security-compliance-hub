@@ -17,6 +17,15 @@ mkdir -p .github/workflows
 cat > .github/workflows/security.yml << 'EOF'
 name: Security Compliance
 
+# Default permissions: grant the workflow the minimal elevated permissions needed
+# for signing and uploading provenance when enabled. Callers running this
+# workflow will grant these permissions in their repo; remove or restrict
+# these if you do not want to allow write operations from the workflow.
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+
 on:
   push:
     branches: [main, develop]
