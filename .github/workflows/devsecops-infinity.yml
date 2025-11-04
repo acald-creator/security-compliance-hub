@@ -87,8 +87,12 @@ jobs:
             go list -json -m all | nancy sleuth
           fi
       
-      - name: Build Provenance
-        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: sbom
+          path: |
+            sbom.json
 
   # ♾️ TEST - Security Testing
   test-phase:
@@ -155,6 +159,16 @@ jobs:
         run: |
           # Validate against OPA policies
           opa eval -d policies/opa/ -i deployment.json "data.deployment.allow"
+
+  # 🔏 Generate SLSA Provenance (top-level job using reusable workflow)
+  generate-provenance:
+    needs: build-phase
+    if: inputs.phase == 'build' || inputs.phase == 'all'
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+    with:
+      base64-subjects: "${{ github.sha }}"
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ♾️ OPERATE - Runtime Security
   operate-phase:
