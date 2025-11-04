@@ -29,9 +29,10 @@ on:
         required: false
       SONAR_TOKEN:
         required: false
-      GITHUB_TOKEN:
-        description: 'Token to perform repository operations (passed from caller)'
-        required: false
+      # Note: callers should pass GITHUB_TOKEN via `secrets: inherit` when
+      # invoking this reusable workflow. Do NOT declare a secret named
+      # `GITHUB_TOKEN` here because that name is reserved by GitHub Actions and
+      # causes a collision when used in `workflow_call`.
     outputs:
       security-score:
         description: 'Overall security score'
