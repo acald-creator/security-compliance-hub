@@ -145,10 +145,12 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ inputs.enable-signing }}
     permissions:
+      # Request only the minimal permission needed for OIDC/cosign operations.
+      # Do NOT request `contents: write` or `packages: write` here so callers
+      # that only grant read access can still reuse this workflow. If a
+      # caller needs to grant elevated permissions (for signing/pushing to
+      # package registries), they should set them in the calling workflow.
       id-token: write
-      contents: write
-      actions: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
       
