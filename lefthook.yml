@@ -17,19 +17,14 @@ pre-commit:
       glob: "*.{js,ts,py,go}"
       run: semgrep --config=auto {staged_files}
 
-commit-msg:
-  commands:
-    # Option 1: If using bash script
-    # conventional-commit:
-    #  run: ./hooks/commit-msg.sh {1}
-    
-    # Option 2: If using commitlint
-    # commitlint:
-    #   run: bunx commitlint --edit {1}
-    
-    # Option 3: If Cocogitto is installed globally
-    # cocogitto:
-    #   run: cog verify {1}
+# Conventional-commit enforcement is intentionally omitted. To enable it,
+# uncomment one of the options below and add them under a `commit-msg:
+# commands:` block. Lefthook rejects an empty commands: block, so the block
+# itself is omitted until at least one is uncommented.
+#   cocogitto:
+#     run: cog verify {1}
+#   commitlint:
+#     run: bunx commitlint --edit {1}
 
 pre-push:
   commands:

@@ -12,17 +12,14 @@ pre-commit:
       glob: "*.{js,ts,py,go}"
       run: semgrep --config=auto {staged_files}
 
-commit-msg:
-  commands:
-    # Conventional commit enforcement (uncomment one):
-
-    # Option 1: Cocogitto
-    # cocogitto:
-    #   run: cog verify {1}
-
-    # Option 2: commitlint
-    # commitlint:
-    #   run: npx commitlint --edit {1}
+# Conventional-commit enforcement is intentionally omitted. To enable it,
+# uncomment one option below *and* add it under a `commit-msg: commands:`
+# block. Lefthook rejects an empty commands: map, so the block itself is
+# omitted until at least one command is active.
+#   cocogitto:
+#     run: cog verify {1}
+#   commitlint:
+#     run: npx commitlint --edit {1}
 
 pre-push:
   commands:
