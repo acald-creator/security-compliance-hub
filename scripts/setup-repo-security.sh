@@ -123,7 +123,7 @@ on:
 
 jobs:
   security:
-    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@main
+    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0
     with:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
@@ -131,7 +131,7 @@ jobs:
     secrets: inherit
 
   devsecops:
-    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@main
+    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
     with:
       phase: all
     secrets: inherit
@@ -177,7 +177,7 @@ on:
 
 jobs:
   security:
-    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@main
+    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0
     with:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
@@ -185,7 +185,7 @@ jobs:
     secrets: inherit
 
   devsecops:
-    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@main
+    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
     with:
       phase: all
     secrets: inherit

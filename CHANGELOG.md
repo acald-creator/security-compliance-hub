@@ -9,6 +9,13 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+### Changed
+- `scripts/setup-repo-security.sh`, `README.md`, and
+  `examples/target-repo-template/.github/workflows/security.yml`: pin the
+  example `workflow_call` references to `@v0` instead of `@main` now that
+  a stable tag exists. New consumers receive a pinned default; existing
+  consumers on `@main` are unaffected and can switch when convenient.
+
 ## [0.1.0] - 2026-04-18
 
 First tagged release. Resolves the items from `AUDIT.md` and establishes
