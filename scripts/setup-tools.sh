@@ -9,12 +9,22 @@ echo "🚀 Setting up development tools..."
 LOCAL_BIN="$HOME/.local/bin"
 mkdir -p "$LOCAL_BIN"
 
-# Add to PATH if not already there
-if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
-    echo "export PATH=\"$LOCAL_BIN:\$PATH\"" >> ~/.bashrc
-    echo "export PATH=\"$LOCAL_BIN:\$PATH\"" >> ~/.zshrc 2>/dev/null || true
-    export PATH="$LOCAL_BIN:$PATH"
-fi
+# Add to PATH for the current session
+case ":$PATH:" in
+    *":$LOCAL_BIN:"*) ;;
+    *) export PATH="$LOCAL_BIN:$PATH" ;;
+esac
+
+# Append the PATH export to shell rc files only if it's not already written
+# there. The previous implementation checked the live PATH, but that does not
+# tell us whether the rc file already contains the export — so running this
+# script after a shell restart would duplicate the line.
+PATH_LINE="export PATH=\"$LOCAL_BIN:\$PATH\""
+for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [ -f "$rc" ] && ! grep -Fq "$PATH_LINE" "$rc"; then
+        echo "$PATH_LINE" >> "$rc"
+    fi
+done
 
 # Install Lefthook from GitHub releases
 install_lefthook() {

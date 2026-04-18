@@ -11,39 +11,80 @@ echo "🔐 Setting up security compliance for repository: $REPO_PATH"
 cd "$REPO_PATH"
 
 # Helper: download a file from the hub raw URL; if the response is HTML or 404,
-# write a safe fallback and warn the user. This avoids writing GitHub HTML error
-# pages into configuration files when the remote path doesn't exist or network
-# access is restricted.
+# warn the user and skip the file. This avoids writing GitHub HTML error pages
+# or unrelated content into configuration files when the remote path doesn't
+# exist or network access is restricted.
+#
+# Safety guards:
+#   1. Existing files are never overwritten unless FORCE_OVERWRITE=1 is set.
+#   2. HTML responses (GitHub 404/redirect pages) are rejected.
+#   3. Content is validated against the destination file extension — a .toml
+#      destination that receives Markdown (or vice versa) is rejected.
+#   4. A process-specific temp file avoids collisions with parallel runs.
 fetch_file() {
   local remote_path="$1"
   local dest="$2"
   local url="$SECURITY_HUB_URL/raw/main/$remote_path"
+  local tmpfile="/tmp/setup_repo_fetch_body.$$"
+
+  # Guard: do not overwrite existing files unless explicitly requested
+  if [ -f "$dest" ] && [ "${FORCE_OVERWRITE:-0}" != "1" ]; then
+    echo "ℹ️  Skipping $dest (already exists). Set FORCE_OVERWRITE=1 to replace."
+    return
+  fi
 
   echo "Fetching $url -> $dest"
-  # Try to retrieve headers and body
-  http_status=$(curl -s -o /tmp/setup_repo_fetch_body --write-out "%{http_code}" -L "$url" || true)
+  http_status=$(curl -s -o "$tmpfile" --write-out "%{http_code}" -L "$url" || true)
 
-  # Detect failure or HTML responses
+  # Detect failure
   if [ "$http_status" != "200" ]; then
-    echo "⚠️  Warning: could not fetch $url (HTTP $http_status). Creating placeholder $dest"
-    cat > "$dest" <<'EOF'
-<!-- Placeholder file: original resource not available. Please replace with your desired content. -->
-EOF
+    echo "⚠️  Warning: could not fetch $url (HTTP $http_status). Skipping $dest."
+    rm -f "$tmpfile"
     return
   fi
 
-  # Check if the body looks like HTML (GitHub 404/HTML pages)
-  if grep -qi "<!doctype html>\|<html" /tmp/setup_repo_fetch_body 2>/dev/null; then
-    echo "⚠️  Warning: fetched content for $url looks like HTML (likely a 404 or redirect). Creating placeholder $dest"
-    cat > "$dest" <<'EOF'
-<!-- Placeholder file: fetched content was HTML (resource missing). Please replace with the intended file. -->
-EOF
-    rm -f /tmp/setup_repo_fetch_body
+  # Reject HTML responses (GitHub 404/redirect pages)
+  if grep -qi "<!doctype html>\|<html" "$tmpfile" 2>/dev/null; then
+    echo "⚠️  Warning: fetched content for $url looks like HTML (likely a 404 or redirect). Skipping $dest."
+    rm -f "$tmpfile"
     return
   fi
 
-  # Otherwise move the body into place
-  mv /tmp/setup_repo_fetch_body "$dest"
+  # Validate that the content looks appropriate for the destination file type.
+  # This prevents, e.g., a Markdown README from being written into a .toml file.
+  local ext="${dest##*.}"
+  case "$ext" in
+    toml)
+      if grep -qi "^#\|^\[" "$tmpfile" 2>/dev/null; then
+        : # looks like TOML or INI — acceptable
+      else
+        echo "⚠️  Warning: fetched content for $dest does not look like TOML. Skipping."
+        rm -f "$tmpfile"
+        return
+      fi
+      ;;
+    yml|yaml)
+      if grep -qi "^[a-z_-]*:" "$tmpfile" 2>/dev/null; then
+        : # looks like YAML — acceptable
+      else
+        echo "⚠️  Warning: fetched content for $dest does not look like YAML. Skipping."
+        rm -f "$tmpfile"
+        return
+      fi
+      ;;
+    md)
+      # Markdown is freeform; just ensure it isn't binary
+      if file "$tmpfile" 2>/dev/null | grep -qi "text"; then
+        : # text content — acceptable
+      else
+        echo "⚠️  Warning: fetched content for $dest does not look like text. Skipping."
+        rm -f "$tmpfile"
+        return
+      fi
+      ;;
+  esac
+
+  mv "$tmpfile" "$dest"
 }
 
 # Step 1: Create security workflow (or templates when running inside the hub repo)
@@ -193,9 +234,40 @@ updates:
 EOF
 
 # Step 6: Enable GitHub security features
+#
+# Resolve the GitHub owner/repo slug. Inside GitHub Actions this is exported
+# as $GITHUB_REPOSITORY; locally we parse it from the `origin` git remote so
+# the gh api calls actually hit a real endpoint instead of /repos//… (404).
 echo "🛡️ Step 6: Configuring GitHub security features..."
-gh api -X PUT /repos/$GITHUB_REPOSITORY/vulnerability-alerts || true
-gh api -X PUT /repos/$GITHUB_REPOSITORY/automated-security-fixes || true
+
+resolve_repo_slug() {
+    if [ -n "${GITHUB_REPOSITORY:-}" ]; then
+        echo "$GITHUB_REPOSITORY"
+        return
+    fi
+    local origin
+    origin=$(git -C "$REPO_PATH" config --get remote.origin.url 2>/dev/null || true)
+    if [ -z "$origin" ]; then
+        return
+    fi
+    # Strip known prefixes/suffixes: git@github.com:owner/repo.git, https://github.com/owner/repo(.git)
+    origin="${origin#git@github.com:}"
+    origin="${origin#https://github.com/}"
+    origin="${origin#http://github.com/}"
+    origin="${origin%.git}"
+    echo "$origin"
+}
+
+REPO_SLUG=$(resolve_repo_slug)
+if [ -z "$REPO_SLUG" ]; then
+    echo "⚠️  Could not determine GitHub repo slug; skipping vulnerability-alert enablement."
+    echo "    Set GITHUB_REPOSITORY=owner/name or add a GitHub 'origin' remote and re-run."
+elif ! command -v gh >/dev/null 2>&1; then
+    echo "⚠️  'gh' CLI not found; skipping vulnerability-alert enablement for $REPO_SLUG."
+else
+    gh api -X PUT "/repos/$REPO_SLUG/vulnerability-alerts" || true
+    gh api -X PUT "/repos/$REPO_SLUG/automated-security-fixes" || true
+fi
 
 echo "✅ Security compliance setup complete!"
 echo ""
@@ -203,4 +275,6 @@ echo "Next steps:"
 echo "1. Review and customize SECURITY.md"
 echo "2. Create threat model in docs/THREAT_MODEL.md"
 echo "3. Run 'gh workflow run security.yml' to trigger first scan"
-echo "4. Check security score at: https://github.com/$GITHUB_REPOSITORY/security"
+if [ -n "$REPO_SLUG" ]; then
+    echo "4. Check security score at: https://github.com/$REPO_SLUG/security"
+fi

@@ -1,21 +1,25 @@
-title = "gitleaks config"
+title = "gitleaks config — security-compliance-hub"
 
 [extend]
 useDefault = true
 
+# The previous allowlist was broad enough to hide real leaks (e.g., all .md in
+# docs/, any *.example.* file, any `${{ ... }}` expression). The list below
+# keeps only the narrow false-positive cases that actually apply to this repo.
 [allowlist]
-description = "Global allowlist"
-paths = [
-  '''README\.md$''',
-  '''docs/.*\.md$''',
-  '''\.github/workflows/.*\.yml$''',
-  '''.*\.example.*''',
-  '''.*\.template.*'''
+description = "Narrow allowlist for known false positives"
+
+# Allow GitHub Actions expression references to repository secrets
+# (not literal secret values). Example: ${{ secrets.MY_TOKEN }}
+regexes = [
+  '''\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}''',
 ]
 
-regexes = [
-  '''acald-creator/security-compliance-hub''',
-  '''uses:\s+[\w\-\.\/]+@\w+''',
-  '''\$\{\{[^}]+\}\}''',
-  '''secrets\.(GITHUB_TOKEN|inherit)'''
+# Scoped path allowlist: only the template/example directories that are meant
+# to contain placeholder values. Real code paths (including docs/ and
+# .github/workflows/) remain scanned.
+paths = [
+  '''examples/target-repo-template/.*''',
+  '''templates/.*\.md$''',
+  '''config/.*\.toml$''',
 ]

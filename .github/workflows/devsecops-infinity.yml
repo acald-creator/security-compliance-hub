@@ -8,6 +8,19 @@ on:
         description: 'Current phase in DevSecOps loop'
         required: true
         type: string
+      registry:
+        description: 'Container registry hostname (e.g. ghcr.io)'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      image:
+        # Defaults to `${{ github.repository }}` at step time.
+        # `workflow_call` input defaults cannot reference the `github` context,
+        # so we resolve this at runtime inside each step that uses it.
+        description: 'Image path within the registry (defaults to github.repository)'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   # ♾️ PLAN - Threat Modeling & Security Requirements
@@ -88,7 +101,7 @@ jobs:
           fi
       
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: |
@@ -103,16 +116,15 @@ jobs:
       
       - name: Run Security Tests
         run: |
-          # Run security-focused tests
-          if [ -f "tests/security" ]; then
+          # Run security-focused tests if a `tests/security` directory exists
+          if [ -d "tests/security" ]; then
             bun test tests/security
           fi
-      
-      - name: DAST Scan
-        if: contains(github.event.head_commit.modified, 'docker-compose')
-        uses: zaproxy/action-full-scan@v0.7.0
-        with:
-          target: 'http://localhost:3000'
+
+      # DAST (ZAP) is intentionally omitted: a reusable workflow can't know
+      # how to start the caller's application on a given port. Callers that
+      # want DAST should add their own job that boots the app and then runs
+      # `zaproxy/action-full-scan`.
 
   # ♾️ RELEASE - Signing & Attestation
   release-phase:
@@ -121,39 +133,49 @@ jobs:
     permissions:
       id-token: write
       packages: write
+    env:
+      REGISTRY: ${{ inputs.registry }}
+      IMAGE: ${{ inputs.image != '' && inputs.image || github.repository }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
-      
+
       - name: Sign Artifacts
         run: |
-          # Sign container images if they exist
+          # Sign container images if a Dockerfile exists in the caller repo
           if [ -f "Dockerfile" ]; then
-            cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+            cosign sign --yes "${REGISTRY}/${IMAGE}:${{ github.sha }}"
           fi
-      
+
       - name: Create Attestations
+        if: hashFiles('sbom.json') != ''
         run: |
           cosign attest --yes \
             --predicate sbom.json \
             --type spdx \
-            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+            "${REGISTRY}/${IMAGE}:${{ github.sha }}"
 
   # ♾️ DEPLOY - Secure Deployment
   deploy-phase:
     if: inputs.phase == 'deploy' || inputs.phase == 'all'
     runs-on: ubuntu-latest
+    env:
+      REGISTRY: ${{ inputs.registry }}
+      IMAGE: ${{ inputs.image != '' && inputs.image || github.repository }}
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
       - name: Verify Image Signatures
         run: |
           cosign verify \
             --certificate-identity-regexp ".*" \
             --certificate-oidc-issuer-regexp ".*" \
-            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+            "${REGISTRY}/${IMAGE}:${{ github.sha }}"
       
       - name: Policy Validation
         run: |

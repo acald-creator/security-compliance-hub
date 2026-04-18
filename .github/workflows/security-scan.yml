@@ -60,39 +60,61 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Run TruffleHog
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@47e7b7cd74f578e1e3145d48f669f22fd1330ca6 # v3.94.3
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
 
   # 🛡️ SAST - Static Application Security Testing
+  #
+  # CodeQL is run as a matrix across the languages GitHub auto-detects for the
+  # calling repo. `returntocorp/semgrep-action` and `semgrep/semgrep-action`
+  # are both deprecated — we install the Semgrep CLI directly and emit SARIF.
   sast-scan:
     name: SAST Analysis
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript, typescript, python, go, java]
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Run Semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/security-audit
-            p/owasp-top-ten
-            p/r2c-security-audit
-            ./policies/semgrep/
-          generateSarif: true
-      
-      - name: Run CodeQL
-        uses: github/codeql-action/analyze@v3
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-      
-      - name: Upload SARIF
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+      - name: Set up Python for Semgrep
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install and run Semgrep
+        run: |
+          pip install --quiet semgrep
+          SEMGREP_ARGS=(--sarif --output=semgrep.sarif)
+          SEMGREP_ARGS+=(--config=p/security-audit --config=p/owasp-top-ten --config=p/r2c-security-audit)
+          if [ -d "./policies/semgrep" ]; then
+            SEMGREP_ARGS+=(--config=./policies/semgrep/)
+          fi
+          semgrep "${SEMGREP_ARGS[@]}" || true
+
+      - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: semgrep.sarif
+          category: semgrep
 
   # 📦 Dependency Scanning
   dependency-scan:
@@ -102,7 +124,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Run OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@main
+        uses: dependency-check/Dependency-Check_Action@75ba02d6183445fe0761d26e836bde58b1560600 # 1.1.0
         with:
           project: ${{ github.repository }}
           path: '.'
@@ -121,23 +143,38 @@ jobs:
             ./
 
   # 🐳 Container Scanning
+  #
+  # Runs on every invocation; individual steps skip themselves when the
+  # relevant files are absent. The previous `if: contains(fromJSON(...), ...)`
+  # guard was broken because `head_commit.modified` is an array and the
+  # expression never evaluated true.
   container-scan:
     name: Container Security
     runs-on: ubuntu-latest
-    if: contains(fromJSON('["Dockerfile", "docker-compose.yml"]'), github.event.head_commit.modified)
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Detect container files
+        id: detect
+        run: |
+          if [ -f Dockerfile ] || compgen -G "Dockerfile.*" >/dev/null || [ -f docker-compose.yml ] || [ -f docker-compose.yaml ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Trivy
-        uses: aquasecurity/trivy-action@master
+        if: steps.detect.outputs.found == 'true'
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
-      
+
       - name: Run Hadolint
+        if: steps.detect.outputs.found == 'true' && hashFiles('Dockerfile') != ''
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
@@ -178,7 +215,7 @@ jobs:
             sbom.spdx.json
       
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: |
@@ -210,34 +247,33 @@ jobs:
       - name: Run Scorecard
         uses: ossf/scorecard-action@v2.3.1
         with:
-          results_file: scorecard.json
-          results_format: json
+          results_file: scorecard.sarif
+          results_format: sarif
           publish_results: true
-      
+
       - name: Upload to Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: scorecard.sarif
+          category: scorecard
 
   # ✅ OWASP Compliance
+  #
+  # Note: a DAST step (OWASP ZAP) is intentionally omitted here because a
+  # reusable workflow cannot know how to start the caller's application.
+  # Callers that want DAST should add a separate job that boots their app
+  # (e.g., via docker compose) and then runs `zaproxy/action-baseline`.
   owasp-check:
     name: OWASP Compliance
     runs-on: ubuntu-latest
     if: contains(inputs.compliance-frameworks, 'owasp')
     steps:
       - uses: actions/checkout@v4
-      
-      - name: OWASP ZAP Baseline Scan
-        if: contains(github.event.head_commit.modified, 'docker-compose.yml')
-        uses: zaproxy/action-baseline@v0.10.0
-        with:
-          target: 'http://localhost:8080'
-          allow_issue_writing: false
-      
+
       - name: OWASP Dependency Check
         run: |
           docker run --rm \
-            -v $(pwd):/src \
+            -v "$(pwd)":/src \
             owasp/dependency-check \
             --scan /src \
             --format JSON \
@@ -247,7 +283,11 @@ jobs:
   aggregate-results:
     name: Security Score & Compliance
     runs-on: ubuntu-latest
-    needs: [secret-scan, sast-scan, dependency-scan, container-scan, openssf-scorecard, owasp-check]
+    # `supply-chain` is listed here so `needs.supply-chain.result` is a valid
+    # context expression. It is gated by `inputs.enable-signing` at the job
+    # level, so when signing is disabled `needs.supply-chain.result` is
+    # `skipped` — which the score calculation handles.
+    needs: [secret-scan, sast-scan, dependency-scan, container-scan, openssf-scorecard, owasp-check, supply-chain]
     if: always()
     outputs:
       score: ${{ steps.calculate.outputs.score }}
@@ -255,9 +295,9 @@ jobs:
       vulnerabilities: ${{ steps.calculate.outputs.vulnerabilities }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
       
       - name: Calculate Security Score
         id: calculate

@@ -6,9 +6,11 @@ pre-commit:
       glob: "*.{js,jsx,ts,tsx,json}"
       run: bunx @biomejs/biome check {staged_files}
     
-    # Secret scanning
+    # Secret scanning — only scan staged changes. `gitleaks detect` would
+    # rescan the entire git history on every commit, which is slow and
+    # surfaces historical findings that cannot be fixed without a rewrite.
     gitleaks:
-      run: gitleaks detect --source . --config .gitleaks.toml
+      run: gitleaks git --pre-commit --staged --config .gitleaks.toml .
     
     # Security scanning
     semgrep:
@@ -34,10 +36,12 @@ pre-push:
     # Run tests
     # test:
       # run: bun test
-    
-    # Check for vulnerabilities
+
+    # Check for vulnerabilities in the dependency tree.
+    # Bun does not ship an `audit` subcommand, so we use audit-ci (npm audit
+    # database under the hood) to fail the push on moderate+ advisories.
     audit:
-      run: bun audit
+      run: bunx audit-ci --moderate
 
 # EXAMPLE USAGE:
 #
