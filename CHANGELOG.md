@@ -9,6 +9,11 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-04-18
+
+First tagged release. Resolves the items from `AUDIT.md` and establishes
+the CI/release plumbing that future versions build on.
+
 ### Added
 - `.gitleaksignore` for historical README findings (placeholders from the
   original Gitleaks sample README living in commit `3004309`).
@@ -44,15 +49,13 @@ consumers should pin references to these workflows.
 - `compliance-dashboard.ts`: HTML-escape all interpolated repo fields (was
   XSS-able), added proper Octokit typing throughout, fail-fast on missing
   `GITHUB_TOKEN`.
-- `lefthook.yml`: replaced non-existent `bun audit` claim — Bun 1.3.12 ships
-  `bun audit` natively, so the pre-push hook uses it directly again.
+- `lefthook.yml`: Bun 1.3.12 ships `bun audit` natively, so the pre-push
+  hook uses it directly.
 - `hooks/lefthook.yml`: replaced invalid `placeholder: true` with a working
   pre-push `bun audit`; switched gitleaks to
   `gitleaks git --pre-commit --staged` so full history is not rescanned on
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-## [0.1.0] - 2026-04-18
-
-Initial baseline after the AUDIT.md resolution pass. Not yet tagged — this
-entry will be filled when the first `v0.1.0` tag is cut.
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.1.0
