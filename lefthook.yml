@@ -37,11 +37,10 @@ pre-push:
     # test:
       # run: bun test
 
-    # Check for vulnerabilities in the dependency tree.
-    # Bun does not ship an `audit` subcommand, so we use audit-ci (npm audit
-    # database under the hood) to fail the push on moderate+ advisories.
+    # Check the dependency tree for known vulnerabilities.
+    # `bun audit` was added in Bun 1.2 and understands bun.lock natively.
     audit:
-      run: bunx audit-ci --moderate
+      run: bun audit
 
 # EXAMPLE USAGE:
 #

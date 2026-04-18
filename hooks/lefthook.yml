@@ -27,9 +27,11 @@ commit-msg:
 pre-push:
   commands:
     # Check the dependency tree for known vulnerabilities.
-    # Uses audit-ci (backed by npm audit) because Bun has no `audit` subcommand.
+    # `bun audit` (added in Bun 1.2) understands bun.lock natively. If the
+    # target repo uses npm/yarn/pnpm instead, swap this for `npm audit`,
+    # `yarn npm audit`, or `pnpm audit` as appropriate.
     audit:
-      run: bunx audit-ci --moderate
+      run: bun audit
 
     # Uncomment to block pushes that fail the test suite:
     # test:
