@@ -196,6 +196,10 @@ fi
 echo "📄 Step 2: Adding security templates..."
 fetch_file "templates/SECURITY.md" SECURITY.md
 fetch_file "templates/SECURITY-INSIGHTS.yml" SECURITY-INSIGHTS.yml
+# The devsecops-infinity plan-phase expects docs/THREAT_MODEL.md. Drop the
+# starter template in place so the first workflow run has something to check.
+mkdir -p docs
+fetch_file "templates/THREAT_MODEL.md" docs/THREAT_MODEL.md
 
 # Step 3: Setup git hooks
 echo "🪝 Step 3: Setting up git hooks..."

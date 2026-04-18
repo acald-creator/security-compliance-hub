@@ -340,7 +340,7 @@ jobs:
           fi
           
           FINAL_SCORE=$((SCORE * 100 / TOTAL_CHECKS))
-          echo "score=$FINAL_SCORE" >> $GITHUB_OUTPUT
+          echo "score=$FINAL_SCORE" >> "$GITHUB_OUTPUT"
           
           # Generate compliance status
           # Determine SLSA/compliance state in a guarded way
@@ -355,7 +355,7 @@ jobs:
             "owasp": "${{ needs.owasp-check.result }}",
             "slsa": "'"$SLSA_STATUS"'"
           }'
-          echo "compliance=$COMPLIANCE_STATUS" >> $GITHUB_OUTPUT
+          echo "compliance=$COMPLIANCE_STATUS" >> "$GITHUB_OUTPUT"
       
       - name: Generate Security Report
         uses: actions/github-script@v7

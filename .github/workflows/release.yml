@@ -1,0 +1,54 @@
+name: Release
+
+# Triggered by pushing a SemVer tag (e.g. v1.0.0). Maintains a moving
+# `v{major}` tag (e.g. `v1`) pointing at the same commit so consumers can
+# pin to a major line and receive non-breaking updates.
+#
+# Usage:
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# This workflow will then:
+#   1. Fast-forward the `v1` tag to the same commit.
+#   2. Create a GitHub Release with auto-generated notes.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish release & update major tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Update moving major tag
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          # v1.2.3 or v1.2.3-rc.1 -> v1
+          MAJOR="${TAG%%.*}"
+          echo "Tag: $TAG  Major: $MAJOR"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Force-update the moving major tag locally and push it. Overwriting
+          # a moving tag is intentional — it is the whole point of the tag.
+          git tag -f "$MAJOR" "$TAG"
+          git push -f origin "refs/tags/$MAJOR"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

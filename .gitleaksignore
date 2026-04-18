@@ -1,0 +1,7 @@
+# Historical findings in commit 3004309 (original sample README, since replaced).
+# Both values are placeholder strings from the Gitleaks project's own example
+# README — not real secrets — and live in immutable git history. Listing their
+# fingerprints here lets full-history scans pass without weakening the
+# detection rules themselves.
+3004309fd3dcc1f02937cca323929a011fc85af2:README.md:sidekiq-secret:51
+3004309fd3dcc1f02937cca323929a011fc85af2:README.md:generic-api-key:569

@@ -1,0 +1,25 @@
+name: Self-scan (weekly dogfood)
+
+# Runs the hub's own reusable security-scan.yml against itself on a weekly
+# schedule (and on-demand). Catches regressions in the shared workflow that
+# unit checks can't surface — the same way consumers would hit them.
+
+on:
+  schedule:
+    # Sundays at 06:00 UTC
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
+jobs:
+  self-scan:
+    uses: ./.github/workflows/security-scan.yml
+    with:
+      severity-threshold: HIGH
+      compliance-frameworks: openssf,owasp,slsa
+      enable-signing: false
+    secrets: inherit

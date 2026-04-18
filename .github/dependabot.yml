@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Keep SHA-pinned actions in the reusable workflows up to date. Dependabot
+  # opens PRs that move pinned SHAs forward and links to upstream changelogs.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - ci
+      - security
+    open-pull-requests-limit: 10
+    groups:
+      # Group trusted GitHub-first-party actions into a single PR to reduce noise.
+      github-actions:
+        patterns:
+          - "actions/*"
+          - "github/*"
+
+  # Track Bun/npm deps used by the compliance dashboard and tooling.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - security
+    open-pull-requests-limit: 10
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch

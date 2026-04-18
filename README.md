@@ -91,9 +91,42 @@ The workflow produces three outputs: `security-score`, `compliance-status`, and 
 
 ### devsecops-infinity.yml inputs
 
-| Input | Description |
-|---|---|
-| `phase` | Phase to run: `plan`, `code`, `build`, `test`, `release`, `deploy`, `operate`, `monitor`, or `all` |
+| Input | Default | Description |
+|---|---|---|
+| `phase` | (required) | Phase to run: `plan`, `code`, `build`, `test`, `release`, `deploy`, `operate`, `monitor`, or `all` |
+| `registry` | `ghcr.io` | Container registry hostname used by release/deploy cosign steps |
+| `image` | `${{ github.repository }}` | Image path within the registry |
+
+## Versioning
+
+Consumers should pin to one of the following refs, in order of preference:
+
+1. **Moving major tag** — `@v1`, `@v2`, etc. Receives non-breaking updates
+   (bug fixes, new non-breaking features) within a major line. Maintained
+   automatically by `.github/workflows/release.yml` whenever a semver tag
+   is cut.
+2. **Exact release tag** — `@v1.2.3`. Immutable once published. Safer for
+   regulated environments but requires manual bumps.
+3. **Commit SHA** — `@<40-char-sha>`. Maximum reproducibility; never
+   moves. Use when you cannot tolerate any upstream drift.
+
+Avoid `@main` in production. `main` can contain in-progress or breaking
+changes between releases.
+
+### What counts as a breaking change?
+
+Anything that requires consumers to edit their calling workflow:
+
+- Renamed or removed `workflow_call` inputs or outputs.
+- Changed default values that alter behavior (e.g. flipping
+  `enable-signing` default).
+- Removed jobs whose results were surfaced in outputs.
+
+Non-breaking:
+
+- Bumping a pinned action SHA.
+- Adding a new optional input with a backward-compatible default.
+- Internal refactors that preserve the input/output contract.
 
 ## Available Scripts
 
