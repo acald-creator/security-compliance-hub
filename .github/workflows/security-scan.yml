@@ -50,7 +50,7 @@ jobs:
     name: Secret Detection
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       
@@ -82,20 +82,20 @@ jobs:
       matrix:
         language: [javascript, typescript, python, go, java]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
 
       - name: Set up Python for Semgrep
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.x"
 
@@ -110,7 +110,7 @@ jobs:
           semgrep "${SEMGREP_ARGS[@]}" || true
 
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: semgrep.sarif
@@ -121,7 +121,7 @@ jobs:
     name: Dependency Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Run OWASP Dependency Check
         uses: dependency-check/Dependency-Check_Action@75ba02d6183445fe0761d26e836bde58b1560600 # 1.1.0
@@ -152,7 +152,7 @@ jobs:
     name: Container Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Detect container files
         id: detect
@@ -193,7 +193,7 @@ jobs:
       # package registries), they should set them in the calling workflow.
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
@@ -215,7 +215,7 @@ jobs:
             sbom.spdx.json
       
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: |
@@ -242,7 +242,7 @@ jobs:
       security-events: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Run Scorecard
         uses: ossf/scorecard-action@v2.3.1
@@ -252,7 +252,7 @@ jobs:
           publish_results: true
 
       - name: Upload to Security Tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: scorecard.sarif
           category: scorecard
@@ -268,7 +268,7 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(inputs.compliance-frameworks, 'owasp')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: OWASP Dependency Check
         run: |
@@ -294,10 +294,10 @@ jobs:
       compliance: ${{ steps.calculate.outputs.compliance }}
       vulnerabilities: ${{ steps.calculate.outputs.vulnerabilities }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
       
       - name: Calculate Security Score
         id: calculate
@@ -358,7 +358,7 @@ jobs:
           echo "compliance=$COMPLIANCE_STATUS" >> "$GITHUB_OUTPUT"
       
       - name: Generate Security Report
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const score = ${{ steps.calculate.outputs.score }};
