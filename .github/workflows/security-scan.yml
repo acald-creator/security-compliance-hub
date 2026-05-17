@@ -227,7 +227,7 @@ jobs:
     name: Generate SLSA Provenance
     needs: supply-chain
     if: ${{ inputs.enable-signing }}
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: "${{ github.sha }}"
     secrets:
