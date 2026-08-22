@@ -9,6 +9,11 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+### Fixed
+- Grant `pull-requests: write` on the hub self-scan workflow so the reusable
+  `aggregate-results` job can start (GitHub rejects called jobs whose
+  permissions exceed the caller).
+
 ## [0.2.0] - 2026-08-21
 
 ### Added

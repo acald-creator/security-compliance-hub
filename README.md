@@ -61,6 +61,7 @@ permissions:
   id-token: write
   contents: write
   security-events: write
+  pull-requests: write
 
 jobs:
   security:
