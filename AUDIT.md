@@ -66,6 +66,7 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 | Nested SLSA generic generator `base64-subjects` is still a commit SHA, not artifact hashes | **Still open** — do not treat SLSA as production-ready |
 | Gitleaks Action license on some orgs | **Open** — personal public repos OK with `GITHUB_TOKEN` |
 | Nexus evidence mapping | **Open** — see portfolio `docs/system-workflow.md` Layer 4 |
+| Self-scan dogfood: TruffleHog BASE==HEAD, OSV missing `runs:`, OWASP NVD key, Scorecard publish | Fixed on `main` (unreleased; target `v0.2.1`) |
 
 ---
 

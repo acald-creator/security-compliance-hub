@@ -16,6 +16,15 @@ consumers should pin references to these workflows.
 - Remove nested `slsa-github-generator` calls that passed `GITHUB_TOKEN` as a
   named secret, which caused reusable-workflow `startup_failure` (including
   weekly self-scan).
+- TruffleHog no longer passes default-branch as `base` on schedule/dispatch,
+  which made BASE==HEAD and failed without scanning.
+- OSV Scanner uses `google/osv-scanner-action/osv-scanner-action` v2.5.1; the
+  repo-root v1 pin had no `runs:` and the job never started.
+- OWASP Dependency-Check no longer runs without `NVD_API_KEY` (NVD rejects an
+  empty key, docker exit 13). The job still requires `SECURITY.md`; CVE
+  scanning stays on OSV. The unused `Dependency-Check_Action` step is gone.
+- Scorecard `publish_results` is off in this suite: OpenSSF rejects workflows
+  that also grant `id-token` to Cosign. SARIF still uploads to the Security tab.
 
 ## [0.2.0] - 2026-08-21
 

@@ -29,6 +29,8 @@ on:
         required: false
       SONAR_TOKEN:
         required: false
+      NVD_API_KEY:
+        required: false
       # Note: callers should pass GITHUB_TOKEN via `secrets: inherit` when
       # invoking this reusable workflow. Do NOT declare a secret named
       # `GITHUB_TOKEN` here because that name is reserved by GitHub Actions and
@@ -63,8 +65,12 @@ jobs:
         uses: trufflesecurity/trufflehog@47e7b7cd74f578e1e3145d48f669f22fd1330ca6 # v3.94.3
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
+          extra_args: --results=verified,unknown
+          # Only diff on pull_request. Passing the default branch as base on
+          # schedule, workflow_dispatch, or push-to-default makes BASE==HEAD
+          # and the action exits 1 without scanning.
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+          head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}
 
   # 🛡️ SAST - Static Application Security Testing
   #
@@ -143,24 +149,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      
-      - name: Run OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@75ba02d6183445fe0761d26e836bde58b1560600 # 1.1.0
-        with:
-          project: ${{ github.repository }}
-          path: '.'
-          format: 'ALL'
-          args: >
-            --enableRetired
-            --enableExperimental
-            --failOnCVSS 7
-      
+
       - name: OSV Scanner
-        uses: google/osv-scanner-action@764c91816374ff2d8fc2095dab36eecd42d61638 # v1.9.2
+        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
         with:
           scan-args: |-
             --recursive
-            --skip-git
             ./
 
   # 🐳 Container Scanning
@@ -257,15 +251,20 @@ jobs:
     permissions:
       security-events: write
       id-token: write
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      
+
       - name: Run Scorecard
-        uses: ossf/scorecard-action@0864cf19026789058feabb7e87baa5f140aac736 # v2.3.1
+        uses: ossf/scorecard-action@55891bbd73f2425e97637d96e306fc9d491d0b21 # v2.4.4
         with:
           results_file: scorecard.sarif
           results_format: sarif
-          publish_results: ${{ github.event.repository.visibility == 'public' }}
+          # OpenSSF's publisher rejects workflows that grant id-token to any
+          # non-scorecard job (this suite also signs SBOMs with Cosign).
+          # SARIF still uploads to the repo Security tab.
+          publish_results: false
 
       - name: Upload to Security Tab
         uses: github/codeql-action/upload-sarif@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
@@ -286,13 +285,32 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: OWASP Dependency Check
+      - name: OWASP process controls
         run: |
+          set -euo pipefail
+          if [ ! -f SECURITY.md ] && [ ! -f docs/SECURITY.md ] && [ ! -f .github/SECURITY.md ]; then
+            echo "::error::SECURITY.md is missing. OWASP expects a public vulnerability-disclosure policy."
+            exit 1
+          fi
+          echo "SECURITY.md present"
+
+      - name: OWASP Dependency-Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NVD_API_KEY}" ]; then
+            echo "Skipping OWASP Dependency-Check: NVD_API_KEY is not set."
+            echo "CVE scanning still runs via OSV Scanner in the Dependency Security job."
+            exit 0
+          fi
           docker run --rm \
+            -e NVD_API_KEY \
             -v "$(pwd)":/src \
             owasp/dependency-check \
             --scan /src \
             --format JSON \
+            --nvdApiKey "$NVD_API_KEY" \
             --out /src/dependency-check-report.json
 
   # 🏁 Aggregate Results
