@@ -9,6 +9,13 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-21
+
+### Fixed
+- CodeQL analysis no longer fails the SAST job when GitHub default setup
+  blocks advanced SARIF (`GITHUB_TOKEN` cannot read the default-setup API).
+  Semgrep still runs afterward.
+
 ## [0.2.2] - 2026-08-21
 
 ### Fixed
@@ -120,7 +127,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.3
 [0.2.2]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.2
 [0.2.1]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.1
 [0.2.0]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.0
