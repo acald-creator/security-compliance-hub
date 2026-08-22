@@ -9,6 +9,8 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-21
+
 ### Fixed
 - Grant `pull-requests: write` on the hub self-scan workflow so the reusable
   `aggregate-results` job can start (GitHub rejects called jobs whose
@@ -103,6 +105,7 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.1
 [0.2.0]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.0
 [0.1.0]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.1.0
