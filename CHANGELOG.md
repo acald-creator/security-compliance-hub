@@ -9,6 +9,8 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-21
+
 ### Added
 - `security-scan.yml` uploads `security-summary.json` (schema
   `acald-creator/security-compliance-hub/security-summary/v1`) for dashboard
@@ -82,5 +84,6 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.0
 [0.1.0]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.1.0
