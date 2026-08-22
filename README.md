@@ -70,13 +70,15 @@ jobs:
       severity-threshold: HIGH          # HIGH, MEDIUM, or LOW
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
-    secrets: inherit
+    secrets:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
     uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
     with:
       phase: all    # or: plan, code, build, test, release, deploy, operate, monitor
-    secrets: inherit
 ```
 
 ### security-scan.yml inputs
@@ -88,7 +90,7 @@ jobs:
 | `compliance-frameworks` | `openssf,owasp,slsa` | Comma-separated list of frameworks to check |
 | `enable-signing` | `true` | Enable Sigstore SBOM signing and SLSA provenance |
 
-Optional secrets (pass with `secrets: inherit` or by name): `NVD_API_KEY` for OWASP Dependency-Check. Without it, that CVE feed is skipped; OSV Scanner still runs. Scorecard results upload to the GitHub Security tab; they are not published to the OpenSSF API from this multi-job workflow (Cosign also needs `id-token`). If GitHub's default CodeQL setup is enabled on the caller, this workflow skips advanced CodeQL (the Security tab rejects that mix) and still runs Semgrep.
+Optional secrets (pass by name, not `secrets: inherit`): `NVD_API_KEY` for OWASP Dependency-Check. Without it, that CVE feed is skipped; OSV Scanner still runs. Scorecard results upload to the GitHub Security tab; they are not published to the OpenSSF API from this multi-job workflow (Cosign also needs `id-token`). If GitHub's default CodeQL setup is enabled on the caller, this workflow skips advanced CodeQL (the Security tab rejects that mix) and still runs Semgrep.
 
 The workflow produces three outputs: `security-score`, `compliance-status`, and `vulnerabilities` (comma-separated failed job names, or `none`). It also uploads a `security-summary` artifact (`security-summary.json`) with schema `acald-creator/security-compliance-hub/security-summary/v1` for the portfolio dashboard and future Underground Nexus consumers.
 

@@ -31,10 +31,9 @@ on:
         required: false
       NVD_API_KEY:
         required: false
-      # Note: callers should pass GITHUB_TOKEN via `secrets: inherit` when
-      # invoking this reusable workflow. Do NOT declare a secret named
-      # `GITHUB_TOKEN` here because that name is reserved by GitHub Actions and
-      # causes a collision when used in `workflow_call`.
+      # Note: GITHUB_TOKEN is provided automatically to called workflows.
+      # Callers should pass optional secrets by name, not `secrets: inherit`
+      # (Semgrep flags inherit as a finding on every consumer).
     outputs:
       security-score:
         description: 'Overall security score'

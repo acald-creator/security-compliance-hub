@@ -9,6 +9,12 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-08-22
+
+### Changed
+- Consumer `security.yml` passes optional secrets by name instead of
+  `secrets: inherit`, which Semgrep flagged on every stamped repo.
+
 ## [0.2.4] - 2026-08-21
 
 ### Fixed
@@ -139,7 +145,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.5
 [0.2.4]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.4
 [0.2.3]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.3
 [0.2.2]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.2

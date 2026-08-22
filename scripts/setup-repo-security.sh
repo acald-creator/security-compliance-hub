@@ -131,13 +131,15 @@ jobs:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
-    secrets: inherit
+    secrets:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
     uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
     with:
       phase: all
-    secrets: inherit
 EOF
 
   # Also create empty placeholders for the other artifacts in the template dir
@@ -188,13 +190,15 @@ jobs:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
-    secrets: inherit
+    secrets:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
     uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
     with:
       phase: all
-    secrets: inherit
 EOF
 fi
 
