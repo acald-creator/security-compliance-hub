@@ -9,6 +9,21 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-21
+
+### Fixed
+- Skip advanced CodeQL when GitHub's default CodeQL setup is enabled (the
+  Security tab rejects that SARIF). Semgrep still runs.
+- Infinity `monitor-phase` no longer fails the job when `GITHUB_TOKEN` cannot
+  read Dependabot alerts (`vulnerability_alerts=read` is not grantable to
+  Actions). It logs a skip and still checks code scanning alerts.
+
+### Changed
+- First-party Actions in the reusable workflows now use Node 24 runtimes
+  (`checkout` v7, `github-script` v9, `setup-python` v7, artifact actions
+  v7/v8, CodeQL Action v4). Third-party scanners may still warn until they
+  ship Node 24 builds.
+
 ## [0.2.1] - 2026-08-21
 
 ### Fixed
@@ -105,7 +120,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.2
 [0.2.1]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.1
 [0.2.0]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.0
 [0.1.0]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.1.0

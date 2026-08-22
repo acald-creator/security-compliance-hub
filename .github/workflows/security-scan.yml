@@ -52,7 +52,7 @@ jobs:
     name: Secret Detection
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       
@@ -84,7 +84,7 @@ jobs:
       security-events: write
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Detect CodeQL languages
         id: langs
@@ -111,18 +111,42 @@ jobs:
             echo "has=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # GitHub rejects advanced CodeQL SARIF while default setup is enabled
+      # ("CodeQL analyses from advanced configurations cannot be processed
+      # when the default setup is enabled"). Skip our CodeQL in that case;
+      # default setup already covers the repo. Semgrep still runs.
+      - name: Check CodeQL default setup
+        id: default_setup
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            try {
+              const { data } = await github.request(
+                'GET /repos/{owner}/{repo}/code-scanning/default-setup',
+                { owner: context.repo.owner, repo: context.repo.repo }
+              );
+              const enabled = data.state === 'configured' || data.state === 'configured-pending';
+              core.setOutput('enabled', enabled ? 'true' : 'false');
+              if (enabled) {
+                core.info('CodeQL default setup is enabled; skipping advanced CodeQL. Semgrep still runs.');
+              }
+            } catch (err) {
+              core.info(`Could not read CodeQL default setup (${err.status || err.message}); attempting advanced CodeQL.`);
+              core.setOutput('enabled', 'false');
+            }
+
       - name: Initialize CodeQL
-        if: steps.langs.outputs.has == 'true'
-        uses: github/codeql-action/init@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
+        if: steps.langs.outputs.has == 'true' && steps.default_setup.outputs.enabled != 'true'
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           languages: ${{ steps.langs.outputs.list }}
 
       - name: Perform CodeQL Analysis
-        if: steps.langs.outputs.has == 'true'
-        uses: github/codeql-action/analyze@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
+        if: steps.langs.outputs.has == 'true' && steps.default_setup.outputs.enabled != 'true'
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
 
       - name: Set up Python for Semgrep
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.x"
 
@@ -137,7 +161,7 @@ jobs:
           semgrep "${SEMGREP_ARGS[@]}" || true
 
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
@@ -148,7 +172,7 @@ jobs:
     name: Dependency Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: OSV Scanner
         uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
@@ -167,7 +191,7 @@ jobs:
     name: Container Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Detect container files
         id: detect
@@ -208,7 +232,7 @@ jobs:
       # package registries), they should set them in the calling workflow.
       id-token: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Install Cosign
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
@@ -230,7 +254,7 @@ jobs:
             sbom.spdx.json
       
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom
           path: |
@@ -255,7 +279,7 @@ jobs:
       # Do not request `actions: read` here. Called jobs cannot exceed the
       # caller's token permissions; typical consumers do not grant `actions`.
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Run Scorecard
         uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
@@ -268,7 +292,7 @@ jobs:
           publish_results: false
 
       - name: Upload to Security Tab
-        uses: github/codeql-action/upload-sarif@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           sarif_file: scorecard.sarif
           category: scorecard
@@ -284,7 +308,7 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(inputs.compliance-frameworks, 'owasp')
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: OWASP process controls
         run: |
@@ -332,10 +356,10 @@ jobs:
       compliance: ${{ steps.calculate.outputs.compliance }}
       vulnerabilities: ${{ steps.calculate.outputs.vulnerabilities }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download all artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       
       - name: Calculate Security Score
         id: calculate
@@ -414,7 +438,7 @@ jobs:
           EOF
 
       - name: Upload security summary
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-summary
           path: security-summary.json
@@ -422,7 +446,7 @@ jobs:
       - name: Comment on pull request
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const score = ${{ steps.calculate.outputs.score }};
