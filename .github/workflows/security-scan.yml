@@ -50,12 +50,12 @@ jobs:
     name: Secret Detection
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
       
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
@@ -68,34 +68,55 @@ jobs:
 
   # 🛡️ SAST - Static Application Security Testing
   #
-  # CodeQL is run as a matrix across the languages GitHub auto-detects for the
-  # calling repo. `returntocorp/semgrep-action` and `semgrep/semgrep-action`
-  # are both deprecated — we install the Semgrep CLI directly and emit SARIF.
+  # CodeQL runs once with only the languages present in the caller. The old
+  # 5-language matrix failed on repos that did not contain those languages and
+  # also ran Semgrep five times. Semgrep is a single step here.
   sast-scan:
     name: SAST Analysis
     runs-on: ubuntu-latest
     permissions:
       security-events: write
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [javascript, typescript, python, go, java]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Detect CodeQL languages
+        id: langs
+        run: |
+          langs=()
+          if [ -f package.json ] || [ -f tsconfig.json ] || [ -n "$(find . -maxdepth 3 -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \) -not -path './node_modules/*' | head -1)" ]; then
+            langs+=("javascript-typescript")
+          fi
+          if [ -f pyproject.toml ] || [ -f requirements.txt ] || [ -f setup.py ] || [ -n "$(find . -maxdepth 3 -name '*.py' -not -path './node_modules/*' | head -1)" ]; then
+            langs+=("python")
+          fi
+          if [ -f go.mod ]; then
+            langs+=("go")
+          fi
+          if [ -f pom.xml ] || [ -f build.gradle ] || [ -f build.gradle.kts ]; then
+            langs+=("java-kotlin")
+          fi
+          if [ ${#langs[@]} -eq 0 ]; then
+            echo "list=" >> "$GITHUB_OUTPUT"
+            echo "has=false" >> "$GITHUB_OUTPUT"
+          else
+            IFS=,
+            echo "list=${langs[*]}" >> "$GITHUB_OUTPUT"
+            echo "has=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        if: steps.langs.outputs.has == 'true'
+        uses: github/codeql-action/init@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
         with:
-          languages: ${{ matrix.language }}
+          languages: ${{ steps.langs.outputs.list }}
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:${{ matrix.language }}"
+        if: steps.langs.outputs.has == 'true'
+        uses: github/codeql-action/analyze@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
 
       - name: Set up Python for Semgrep
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.x"
 
@@ -110,8 +131,8 @@ jobs:
           semgrep "${SEMGREP_ARGS[@]}" || true
 
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
+        if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
           category: semgrep
@@ -121,7 +142,7 @@ jobs:
     name: Dependency Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       
       - name: Run OWASP Dependency Check
         uses: dependency-check/Dependency-Check_Action@75ba02d6183445fe0761d26e836bde58b1560600 # 1.1.0
@@ -135,7 +156,7 @@ jobs:
             --failOnCVSS 7
       
       - name: OSV Scanner
-        uses: google/osv-scanner-action@v1
+        uses: google/osv-scanner-action@764c91816374ff2d8fc2095dab36eecd42d61638 # v1.9.2
         with:
           scan-args: |-
             --recursive
@@ -152,7 +173,7 @@ jobs:
     name: Container Security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Detect container files
         id: detect
@@ -175,7 +196,7 @@ jobs:
 
       - name: Run Hadolint
         if: steps.detect.outputs.found == 'true' && hashFiles('Dockerfile') != ''
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           dockerfile: Dockerfile
           failure-threshold: warning
@@ -193,16 +214,16 @@ jobs:
       # package registries), they should set them in the calling workflow.
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
       
       - name: Install Syft
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
       
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           format: spdx-json
           output-file: sbom.spdx.json
@@ -215,7 +236,7 @@ jobs:
             sbom.spdx.json
       
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom
           path: |
@@ -242,17 +263,17 @@ jobs:
       security-events: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       
       - name: Run Scorecard
-        uses: ossf/scorecard-action@v2.3.1
+        uses: ossf/scorecard-action@0864cf19026789058feabb7e87baa5f140aac736 # v2.3.1
         with:
           results_file: scorecard.sarif
           results_format: sarif
-          publish_results: true
+          publish_results: ${{ github.event.repository.visibility == 'public' }}
 
       - name: Upload to Security Tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@42947a340483f03ba47bb1a039b2c519aab3df85 # v3
         with:
           sarif_file: scorecard.sarif
           category: scorecard
@@ -268,7 +289,7 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(inputs.compliance-frameworks, 'owasp')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: OWASP Dependency Check
         run: |
@@ -289,98 +310,127 @@ jobs:
     # `skipped` — which the score calculation handles.
     needs: [secret-scan, sast-scan, dependency-scan, container-scan, openssf-scorecard, owasp-check, supply-chain]
     if: always()
+    permissions:
+      contents: read
+      pull-requests: write
     outputs:
       score: ${{ steps.calculate.outputs.score }}
       compliance: ${{ steps.calculate.outputs.compliance }}
       vulnerabilities: ${{ steps.calculate.outputs.vulnerabilities }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
       
       - name: Calculate Security Score
         id: calculate
+        env:
+          SECRET: ${{ needs.secret-scan.result }}
+          SAST: ${{ needs.sast-scan.result }}
+          DEPS: ${{ needs.dependency-scan.result }}
+          CONTAINER: ${{ needs.container-scan.result }}
+          OPENSFF: ${{ needs.openssf-scorecard.result }}
+          OWASP: ${{ needs.owasp-check.result }}
+          SUPPLY: ${{ needs.supply-chain.result }}
+          SIGNING: ${{ inputs.enable-signing }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
         run: |
-          # Aggregate all security findings
           SCORE=0
           TOTAL_CHECKS=0
-          
-          # Calculate weighted score
-          if [ "${{ needs.secret-scan.result }}" == "success" ]; then
-            SCORE=$((SCORE + 20))
-          fi
+
+          if [ "$SECRET" = "success" ]; then SCORE=$((SCORE + 20)); fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 20))
-          
-          if [ "${{ needs.sast-scan.result }}" == "success" ]; then
-            SCORE=$((SCORE + 25))
-          fi
+
+          if [ "$SAST" = "success" ]; then SCORE=$((SCORE + 25)); fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
-          
-          if [ "${{ needs.dependency-scan.result }}" == "success" ]; then
-            SCORE=$((SCORE + 25))
-          fi
+
+          if [ "$DEPS" = "success" ]; then SCORE=$((SCORE + 25)); fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
-          if [ "${{ needs.container-scan.result }}" == "skipped" ] || [ "${{ needs.container-scan.result }}" == "success" ]; then
-            SCORE=$((SCORE + 15))
-          fi
+
+          if [ "$CONTAINER" = "skipped" ] || [ "$CONTAINER" = "success" ]; then SCORE=$((SCORE + 15)); fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
 
-          if [ "${{ needs.openssf-scorecard.result }}" == "success" ]; then
-            SCORE=$((SCORE + 15))
-          fi
+          if [ "$OPENSFF" = "success" ]; then SCORE=$((SCORE + 15)); fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
 
-          # Only access supply-chain results when signing is enabled to avoid invalid context
-          if [ "${{ inputs.enable-signing }}" = "true" ]; then
-            if [ "${{ needs.supply-chain.result }}" == "success" ]; then
-              SCORE=$((SCORE + 15))
-            fi
+          if [ "$SIGNING" = "true" ]; then
+            if [ "$SUPPLY" = "success" ]; then SCORE=$((SCORE + 15)); fi
             TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
-          fi
-          
-          FINAL_SCORE=$((SCORE * 100 / TOTAL_CHECKS))
-          echo "score=$FINAL_SCORE" >> "$GITHUB_OUTPUT"
-          
-          # Generate compliance status
-          # Determine SLSA/compliance state in a guarded way
-          if [ "${{ inputs.enable-signing }}" = "true" ]; then
-            SLSA_STATUS="${{ needs.supply-chain.result }}"
+            SLSA_STATUS="$SUPPLY"
           else
             SLSA_STATUS="not_requested"
           fi
 
-          COMPLIANCE_STATUS='{
-            "openssf": "${{ needs.openssf-scorecard.result }}",
-            "owasp": "${{ needs.owasp-check.result }}",
-            "slsa": "'"$SLSA_STATUS"'"
-          }'
-          echo "compliance=$COMPLIANCE_STATUS" >> "$GITHUB_OUTPUT"
-      
-      - name: Generate Security Report
-        uses: actions/github-script@v7
+          FINAL_SCORE=$((SCORE * 100 / TOTAL_CHECKS))
+          echo "score=$FINAL_SCORE" >> "$GITHUB_OUTPUT"
+
+          FAILED=""
+          for pair in "secret:$SECRET" "sast:$SAST" "dependency:$DEPS" "container:$CONTAINER" "openssf:$OPENSFF" "owasp:$OWASP"; do
+            name="${pair%%:*}"
+            result="${pair#*:}"
+            if [ "$result" = "failure" ]; then
+              FAILED="${FAILED}${FAILED:+,}${name}"
+            fi
+          done
+          echo "vulnerabilities=${FAILED:-none}" >> "$GITHUB_OUTPUT"
+
+          COMPLIANCE="{\"openssf\":\"$OPENSFF\",\"owasp\":\"$OWASP\",\"slsa\":\"$SLSA_STATUS\"}"
+          echo "compliance=$COMPLIANCE" >> "$GITHUB_OUTPUT"
+
+          cat > security-summary.json <<EOF
+          {
+            "schema": "acald-creator/security-compliance-hub/security-summary/v1",
+            "repository": "$REPOSITORY",
+            "sha": "$SHA",
+            "score": $FINAL_SCORE,
+            "compliance": $COMPLIANCE,
+            "jobs": {
+              "secret": "$SECRET",
+              "sast": "$SAST",
+              "dependency": "$DEPS",
+              "container": "$CONTAINER",
+              "openssf": "$OPENSFF",
+              "owasp": "$OWASP",
+              "supply_chain": "$SUPPLY"
+            },
+            "failed": "${FAILED:-none}"
+          }
+          EOF
+
+      - name: Upload security summary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-summary
+          path: security-summary.json
+
+      - name: Comment on pull request
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const score = ${{ steps.calculate.outputs.score }};
             const badge = score >= 80 ? '🟢' : score >= 60 ? '🟡' : '🔴';
-            
             const comment = `## ${badge} Security Scan Results
-            
+
             **Overall Score:** ${score}/100
-            
+
             ### Compliance Status
             - OpenSSF Scorecard: ${{ needs.openssf-scorecard.result }}
             - OWASP Compliance: ${{ needs.owasp-check.result }}
             - Supply Chain Security: ${{ needs.supply-chain.result }}
-            
+
             ### Security Checks
-            - 🔍 Secret Scanning: ${{ needs.secret-scan.result }}
-            - 🛡️ SAST Analysis: ${{ needs.sast-scan.result }}
-            - 📦 Dependency Scan: ${{ needs.dependency-scan.result }}
-            - 🐳 Container Security: ${{ needs.container-scan.result }}
-            
-            [View Full Report](https://github.com/${{ github.repository }}/security)`;
-            
+            - Secret Scanning: ${{ needs.secret-scan.result }}
+            - SAST Analysis: ${{ needs.sast-scan.result }}
+            - Dependency Scan: ${{ needs.dependency-scan.result }}
+            - Container Security: ${{ needs.container-scan.result }}
+
+            Machine-readable summary: artifact \`security-summary\` (\`security-summary.json\`).
+            [Security tab](https://github.com/${{ github.repository }}/security)`;
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

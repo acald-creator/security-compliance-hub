@@ -87,7 +87,7 @@ jobs:
 | `compliance-frameworks` | `openssf,owasp,slsa` | Comma-separated list of frameworks to check |
 | `enable-signing` | `true` | Enable Sigstore SBOM signing and SLSA provenance |
 
-The workflow produces three outputs: `security-score`, `compliance-status`, and `vulnerabilities`.
+The workflow produces three outputs: `security-score`, `compliance-status`, and `vulnerabilities` (comma-separated failed job names, or `none`). It also uploads a `security-summary` artifact (`security-summary.json`) with schema `acald-creator/security-compliance-hub/security-summary/v1` for the portfolio dashboard and future Underground Nexus consumers.
 
 ### devsecops-infinity.yml inputs
 
@@ -153,7 +153,7 @@ export GITHUB_TOKEN="ghp_..."
 bun run audit:all
 ```
 
-This scans every repository for the authenticated user, checks for SECURITY.md, security workflows, Dependabot, CodeQL, branch protection, and commit signing, then writes an HTML report to `compliance-report.html`.
+This scans every repository for the authenticated user (paginated), checks for SECURITY.md, security workflows, Dependabot, CodeQL, vulnerability alerts, branch protection, signed commits, and OpenSSF Scorecard, then writes `compliance-report.html` and `compliance-report.json`.
 
 ## Project Structure
 

@@ -37,6 +37,9 @@ jobs:
       - name: TypeScript typecheck
         run: bunx tsc --noEmit
 
+      - name: Unit tests
+        run: bun test
+
       - name: Bun dependency audit
         run: bun audit
 

@@ -1,5 +1,7 @@
 import { createWriteStream } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { Octokit } from "@octokit/rest";
+import { escapeHtml } from "./lib/html.ts";
 
 type RepoListItem = Awaited<
 	ReturnType<Octokit["repos"]["listForAuthenticatedUser"]>
@@ -49,22 +51,11 @@ if (!GITHUB_TOKEN) {
 
 const octokit = new Octokit({ auth: GITHUB_TOKEN });
 
-const HTML_ESCAPES: Record<string, string> = {
-	"&": "&amp;",
-	"<": "&lt;",
-	">": "&gt;",
-	'"': "&quot;",
-	"'": "&#39;",
-};
-
-function escapeHtml(value: string): string {
-	return value.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch] ?? ch);
-}
-
 async function auditAllRepos(): Promise<void> {
-	const { data: repos } = await octokit.repos.listForAuthenticatedUser({
+	const repos = await octokit.paginate(octokit.repos.listForAuthenticatedUser, {
 		per_page: 100,
 		sort: "updated",
+		affiliation: process.env.AUDIT_AFFILIATION ?? "owner",
 	});
 
 	const report: ComplianceReport = {
@@ -101,16 +92,37 @@ async function auditAllRepos(): Promise<void> {
 	const stream = createWriteStream("compliance-report.html");
 	stream.write(html);
 	stream.end();
+	await writeFile(
+		"compliance-report.json",
+		`${JSON.stringify(report, null, 2)}\n`,
+	);
 
 	console.log(`\n✅ Compliance report generated: compliance-report.html`);
+	console.log(`✅ JSON report generated: compliance-report.json`);
 	console.log(
 		`Summary: ${report.compliance_summary.compliant} compliant, ${report.compliance_summary.partial} partial, ${report.compliance_summary.non_compliant} non-compliant`,
 	);
 }
 
+async function fileExists(
+	owner: string,
+	repo: string,
+	path: string,
+): Promise<boolean> {
+	try {
+		await octokit.repos.getContent({ owner, repo, path });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 async function checkRepoCompliance(
 	repo: RepoListItem,
 ): Promise<ComplianceResult> {
+	const owner = repo.owner.login;
+	const name = repo.name;
+
 	const checks: ComplianceChecks = {
 		has_security_md: false,
 		has_security_workflow: false,
@@ -122,21 +134,15 @@ async function checkRepoCompliance(
 		openssf_score: 0,
 	};
 
-	try {
-		await octokit.repos.getContent({
-			owner: repo.owner.login,
-			repo: repo.name,
-			path: "SECURITY.md",
-		});
-		checks.has_security_md = true;
-	} catch {
-		// SECURITY.md not present — leave check false.
-	}
+	checks.has_security_md = await fileExists(owner, name, "SECURITY.md");
+	checks.has_dependabot =
+		(await fileExists(owner, name, ".github/dependabot.yml")) ||
+		(await fileExists(owner, name, ".github/dependabot.yaml"));
 
 	try {
 		const { data: workflows } = await octokit.actions.listRepoWorkflows({
-			owner: repo.owner.login,
-			repo: repo.name,
+			owner,
+			repo: name,
 		});
 		checks.has_security_workflow = workflows.workflows.some(
 			(w) =>
@@ -150,6 +156,53 @@ async function checkRepoCompliance(
 		// Workflow listing failed (private repo without permission, etc.).
 	}
 
+	try {
+		const response = await octokit.request(
+			"GET /repos/{owner}/{repo}/vulnerability-alerts",
+			{ owner, repo: name },
+		);
+		checks.vulnerability_alerts_enabled = response.status === 204;
+	} catch {
+		checks.vulnerability_alerts_enabled = false;
+	}
+
+	try {
+		const { data: details } = await octokit.repos.get({ owner, repo: name });
+		await octokit.repos.getBranchProtection({
+			owner,
+			repo: name,
+			branch: details.default_branch,
+		});
+		checks.has_branch_protection = true;
+	} catch {
+		checks.has_branch_protection = false;
+	}
+
+	try {
+		const { data: commits } = await octokit.repos.listCommits({
+			owner,
+			repo: name,
+			per_page: 1,
+		});
+		checks.signed_commits = Boolean(commits[0]?.commit.verification?.verified);
+	} catch {
+		checks.signed_commits = false;
+	}
+
+	try {
+		const scorecard = await fetch(
+			`https://api.securityscorecards.dev/projects/github.com/${owner}/${name}`,
+		);
+		if (scorecard.ok) {
+			const body = (await scorecard.json()) as { score?: number };
+			if (typeof body.score === "number") {
+				checks.openssf_score = body.score;
+			}
+		}
+	} catch {
+		checks.openssf_score = 0;
+	}
+
 	const booleanChecks: Array<keyof ComplianceChecks> = [
 		"has_security_md",
 		"has_security_workflow",
@@ -160,7 +213,10 @@ async function checkRepoCompliance(
 		"signed_commits",
 	];
 	const passed = booleanChecks.filter((key) => checks[key] === true).length;
-	const score = (passed / booleanChecks.length) * 100;
+	let score = (passed / booleanChecks.length) * 100;
+	if (checks.openssf_score > 0) {
+		score = (score + checks.openssf_score * 10) / 2;
+	}
 
 	const status: ComplianceStatus =
 		score >= 80 ? "compliant" : score >= 50 ? "partial" : "non_compliant";
