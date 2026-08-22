@@ -1,51 +1,50 @@
 # Security Compliance Hub
 
-A centralized DevSecOps toolkit that provides reusable GitHub Actions workflows, local security tooling, and a compliance dashboard for auditing repositories. It is designed to be consumed by other repositories as a single source of truth for security scanning, policy enforcement, and supply-chain integrity.
+Reusable GitHub Actions that other repositories pin for secret scanning, SAST, SCA, container checks, SBOM signing, and OpenSSF Scorecard.
 
-## Features
+This is the enforce layer of a DevSecOps portfolio: stamp a repo, pin `@v0`, and let CI run the suite. Scoring and Showcase live in a separate operator console, not in this repository.
 
-- **Reusable security scanning workflow** -- secret detection (Gitleaks, TruffleHog), SAST (Semgrep, CodeQL), dependency scanning (OWASP Dependency-Check, OSV Scanner), container scanning (Trivy, Hadolint), SBOM generation and signing (Syft, Cosign), SLSA provenance, and OpenSSF Scorecard.
-- **DevSecOps infinity loop workflow** -- models the full plan/code/build/test/release/deploy/operate/monitor lifecycle with security gates at every phase.
-- **Local tool installer** -- one script to install Lefthook, Trivy, Gitleaks, and Semgrep on Linux or macOS.
-- **Repository setup script** -- provisions a target repository with security workflows, Dependabot config, git hooks, and security policy templates in a single command.
-- **Compliance dashboard** -- a TypeScript script (runs on Bun) that audits every repository for a GitHub user via the Octokit API and generates an HTML compliance report.
-- **Git hooks via Lefthook** -- pre-commit hooks for Biome linting/formatting, Gitleaks secret scanning, and Semgrep static analysis; pre-push hook for dependency auditing.
-- **Template files** -- ready-to-copy examples for target repositories including security workflow, SECURITY.md, SECURITY-INSIGHTS.yml, Lefthook config, and Cocogitto config.
+Current release: **[v0.2.5](https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.5)**. Consumers pin `@v0`.
+
+## What it ships
+
+- **Reusable security scan** (`security-scan.yml`) — Gitleaks, TruffleHog, Semgrep, CodeQL, OWASP Dependency-Check, OSV Scanner, Trivy, Hadolint, Syft, Cosign, and OpenSSF Scorecard. Uploads `security-summary.json` (`acald-creator/security-compliance-hub/security-summary/v1`) for dashboard consumers.
+- **Reusable DevSecOps infinity loop** (`devsecops-infinity.yml`) — plan / code / build / test / release / deploy / operate / monitor, with security gates per phase.
+- **Stamp script** — `scripts/setup-repo-security.sh <path>` writes `security.yml`, Dependabot (ecosystems the target actually uses), Lefthook, `SECURITY.md`, and related templates. Always overwrites `security.yml` and `dependabot.yml`. Other files are skipped unless `FORCE_OVERWRITE=1`.
+- **Local tool installer** — Lefthook, Trivy, Gitleaks, and Semgrep on Linux or macOS.
+- **HTML audit** — `bun run audit:all` walks GitHub repos via Octokit and writes `compliance-report.html` / `compliance-report.json`. That is not the Next.js inventory console (`acald-creator/dev-portfolio-dashboard`).
+
+The hub dogfoods via `.github/workflows/self-scan.yml`, not a root `security.yml`.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh/) (runtime for TypeScript scripts and package management)
+- [Bun](https://bun.sh/)
 - [Git](https://git-scm.com/)
-- Bash shell (Linux or macOS)
-- A `GITHUB_TOKEN` environment variable for the compliance dashboard and workflow secrets
-- Optional: Python 3 (for Semgrep installation via pip)
-- Optional: Rust / Cargo or Homebrew (for Cocogitto installation)
+- Bash (Linux or macOS)
+- A `GITHUB_TOKEN` for the HTML audit
+- Optional: Python 3 (Semgrep via pip); Rust / Cargo or Homebrew (Cocogitto)
 
 ## Getting Started
-
-Clone the repository and install dependencies:
 
 ```bash
 git clone https://github.com/acald-creator/security-compliance-hub.git
 cd security-compliance-hub
 bun install
-```
-
-Install the local security tools (Lefthook, Trivy, Gitleaks, Semgrep):
-
-```bash
 ./scripts/setup-tools.sh
-```
-
-Activate the pre-commit hooks in this repository:
-
-```bash
 lefthook install
 ```
 
-## Using the Reusable Workflows
+Stamp another repository:
 
-The two reusable workflows are designed to be called from any repository via `workflow_call`. Add a workflow file to the consuming repository (for example `.github/workflows/security.yml`):
+```bash
+./scripts/setup-repo-security.sh /path/to/target-repo
+# commit, push, then:
+gh workflow run security.yml --repo acald-creator/<repo> --ref main
+```
+
+## Using the reusable workflows
+
+Callers need `security-events: write` and `pull-requests: write`. Pass optional secrets **by name**, not `secrets: inherit` (Semgrep flags inherit on every consumer).
 
 ```yaml
 name: Security Compliance
@@ -55,11 +54,13 @@ on:
     branches: [main, develop]
   pull_request:
   schedule:
-    - cron: "0 0 * * 0" # Weekly scan
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: write
+  packages: write
   security-events: write
   pull-requests: write
 
@@ -67,7 +68,7 @@ jobs:
   security:
     uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0
     with:
-      severity-threshold: HIGH          # HIGH, MEDIUM, or LOW
+      severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
     secrets:
@@ -78,7 +79,7 @@ jobs:
   devsecops:
     uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
     with:
-      phase: all    # or: plan, code, build, test, release, deploy, operate, monitor
+      phase: all
 ```
 
 ### security-scan.yml inputs
@@ -88,102 +89,82 @@ jobs:
 | `repository` | current repo | Repository to scan |
 | `severity-threshold` | `HIGH` | Minimum severity that fails the build |
 | `compliance-frameworks` | `openssf,owasp,slsa` | Comma-separated list of frameworks to check |
-| `enable-signing` | `true` | Enable Sigstore SBOM signing and SLSA provenance |
+| `enable-signing` | `true` | Enable Sigstore SBOM signing |
 
-Optional secrets (pass by name, not `secrets: inherit`): `NVD_API_KEY` for OWASP Dependency-Check. Without it, that CVE feed is skipped; OSV Scanner still runs. Scorecard results upload to the GitHub Security tab; they are not published to the OpenSSF API from this multi-job workflow (Cosign also needs `id-token`). If GitHub's default CodeQL setup is enabled on the caller, this workflow skips advanced CodeQL (the Security tab rejects that mix) and still runs Semgrep.
+Optional secrets: `NVD_API_KEY` (OWASP Dependency-Check NVD feed), `SNYK_TOKEN`, `SONAR_TOKEN`. Without `NVD_API_KEY`, that CVE feed is skipped; OSV Scanner still runs.
 
-The workflow produces three outputs: `security-score`, `compliance-status`, and `vulnerabilities` (comma-separated failed job names, or `none`). It also uploads a `security-summary` artifact (`security-summary.json`) with schema `acald-creator/security-compliance-hub/security-summary/v1` for the portfolio dashboard and future Underground Nexus consumers.
+Outputs: `security-score`, `compliance-status`, and `vulnerabilities` (comma-separated failed job names, or `none`). The `security-summary` artifact is `security-summary.json`.
+
+Known limits of this suite:
+
+- Scorecard uploads SARIF to the GitHub Security tab with `publish_results: false` (OpenSSF rejects publishing from a workflow that also grants `id-token` to Cosign). Do not request `actions: read` on the Scorecard job.
+- Nested SLSA generators are omitted (passing `GITHUB_TOKEN` as a named secret failed reusable-workflow startup).
+- If GitHub default CodeQL setup is enabled on the caller, advanced CodeQL is skipped; Semgrep still runs.
 
 ### devsecops-infinity.yml inputs
 
 | Input | Default | Description |
 |---|---|---|
-| `phase` | (required) | Phase to run: `plan`, `code`, `build`, `test`, `release`, `deploy`, `operate`, `monitor`, or `all` |
-| `registry` | `ghcr.io` | Container registry hostname used by release/deploy cosign steps |
+| `phase` | (required) | `plan`, `code`, `build`, `test`, `release`, `deploy`, `operate`, `monitor`, or `all` |
+| `registry` | `ghcr.io` | Container registry hostname used by release/deploy Cosign steps |
 | `image` | `${{ github.repository }}` | Image path within the registry |
 
 ## Versioning
 
-Consumers should pin to one of the following refs, in order of preference:
+Consumers should pin, in order of preference:
 
-1. **Moving major tag** — `@v1`, `@v2`, etc. Receives non-breaking updates
-   (bug fixes, new non-breaking features) within a major line. Maintained
-   automatically by `.github/workflows/release.yml` whenever a semver tag
-   is cut.
-2. **Exact release tag** — `@v1.2.3`. Immutable once published. Safer for
-   regulated environments but requires manual bumps.
-3. **Commit SHA** — `@<40-char-sha>`. Maximum reproducibility; never
-   moves. Use when you cannot tolerate any upstream drift.
+1. **Moving major tag** — `@v0` today. Receives non-breaking updates within the major line. Maintained by `.github/workflows/release.yml` when a semver tag is cut.
+2. **Exact release tag** — `@v0.2.5`. Immutable once published.
+3. **Commit SHA** — `@<40-char-sha>`. Maximum reproducibility.
 
-Avoid `@main` in production. `main` can contain in-progress or breaking
-changes between releases.
+Avoid `@main` in production.
 
 ### What counts as a breaking change?
 
 Anything that requires consumers to edit their calling workflow:
 
 - Renamed or removed `workflow_call` inputs or outputs.
-- Changed default values that alter behavior (e.g. flipping
-  `enable-signing` default).
+- Changed default values that alter behavior (for example flipping `enable-signing`).
 - Removed jobs whose results were surfaced in outputs.
 
-Non-breaking:
+Non-breaking: bumping a pinned action SHA, adding an optional input with a backward-compatible default, internal refactors that preserve the contract.
 
-- Bumping a pinned action SHA.
-- Adding a new optional input with a backward-compatible default.
-- Internal refactors that preserve the input/output contract.
+A future `@v1` would be a new major line, not the current pin.
 
-## Available Scripts
+## Scripts
 
 | Script | Purpose |
 |---|---|
-| `scripts/setup-tools.sh` | Installs Lefthook, Trivy, Gitleaks, and Semgrep locally |
-| `scripts/setup-repo-security.sh [path]` | Provisions a target repository with security workflows, templates, hooks, and Dependabot config |
-| `scripts/install-commit-tools.sh` | Installs Cocogitto for conventional commit enforcement |
-| `scripts/compliance-dashboard.ts` | Audits all repositories for the authenticated GitHub user and generates `compliance-report.html` |
-
-### npm scripts (via `bun run`)
-
-```bash
-bun run audit:all        # Run the compliance dashboard
-bun run setup:repo       # Provision a target repo with security config
-```
-
-## Running the Compliance Dashboard
-
-Set your GitHub token and run the dashboard:
+| `scripts/setup-tools.sh` | Install Lefthook, Trivy, Gitleaks, and Semgrep locally |
+| `scripts/setup-repo-security.sh [path]` | Stamp a target repository with workflows, templates, hooks, and Dependabot |
+| `scripts/install-commit-tools.sh` | Install Cocogitto |
+| `scripts/compliance-dashboard.ts` | HTML/JSON audit of GitHub repos for the authenticated user |
 
 ```bash
 export GITHUB_TOKEN="ghp_..."
-bun run audit:all
+bun run audit:all        # write compliance-report.html and compliance-report.json
+bun run setup:repo       # stamp a target (same as setup-repo-security.sh)
 ```
 
-This scans every repository for the authenticated user (paginated), checks for SECURITY.md, security workflows, Dependabot, CodeQL, vulnerability alerts, branch protection, signed commits, and OpenSSF Scorecard, then writes `compliance-report.html` and `compliance-report.json`.
-
-## Project Structure
+## Project structure
 
 ```
 security-compliance-hub/
 ├── .github/workflows/
-│   ├── security-scan.yml           # Reusable security scanning suite
-│   └── devsecops-infinity.yml      # Reusable DevSecOps lifecycle workflow
+│   ├── security-scan.yml           # Reusable security suite
+│   ├── devsecops-infinity.yml      # Reusable lifecycle workflow
+│   ├── self-scan.yml               # Hub dogfood
+│   ├── ci.yml
+│   └── release.yml                 # Semver tag → moving @v0
 ├── scripts/
-│   ├── setup-tools.sh              # Local tool installer
-│   ├── setup-repo-security.sh      # Target repo provisioning
-│   ├── install-commit-tools.sh     # Cocogitto installer
-│   └── compliance-dashboard.ts     # Repo compliance auditor
-├── examples/
-│   └── target-repo-template/       # Template files for target repos
-│       ├── SECURITY.md
-│       ├── SECURITY-INSIGHTS.yml
-│       ├── lefthook.yml
-│       └── config/
-│           └── cog.toml
-├── lefthook.yml                    # Pre-commit and pre-push hook config
-├── biome.json                      # Biome linter/formatter config
-├── package.json
-├── tsconfig.json
-└── LICENSE
+│   ├── setup-tools.sh
+│   ├── setup-repo-security.sh
+│   ├── install-commit-tools.sh
+│   └── compliance-dashboard.ts
+├── templates/                      # SECURITY.md, insights, threat model
+├── examples/target-repo-template/  # Copyable consumer files
+├── hooks/lefthook.yml
+└── CHANGELOG.md
 ```
 
 ## License
