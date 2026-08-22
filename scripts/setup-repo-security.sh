@@ -113,6 +113,8 @@ permissions:
   id-token: write
   contents: write
   packages: write
+  security-events: write
+  pull-requests: write
 
 on:
   push:
@@ -167,6 +169,8 @@ permissions:
   id-token: write
   contents: write
   packages: write
+  security-events: write
+  pull-requests: write
 
 on:
   push:

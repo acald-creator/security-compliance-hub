@@ -13,6 +13,9 @@ consumers should pin references to these workflows.
 - Grant `pull-requests: write` on the hub self-scan workflow so the reusable
   `aggregate-results` job can start (GitHub rejects called jobs whose
   permissions exceed the caller).
+- Remove nested `slsa-github-generator` calls that passed `GITHUB_TOKEN` as a
+  named secret, which caused reusable-workflow `startup_failure` (including
+  weekly self-scan).
 
 ## [0.2.0] - 2026-08-21
 

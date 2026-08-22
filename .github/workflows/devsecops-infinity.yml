@@ -208,15 +208,8 @@ jobs:
           fi
           opa eval -d policies/opa/ -i deployment.json "data.deployment.allow"
 
-  # 🔏 Generate SLSA Provenance (top-level job using reusable workflow)
-  generate-provenance:
-    needs: build-phase
-    if: inputs.phase == 'build' || inputs.phase == 'all'
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
-    with:
-      base64-subjects: "${{ github.sha }}"
-    secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Nested SLSA generator removed: same GITHUB_TOKEN startup_failure as
+  # security-scan.yml. Restore with hashed SBOM subjects.
 
   # ♾️ OPERATE - Runtime Security
   operate-phase:
