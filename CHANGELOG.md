@@ -9,12 +9,30 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+### Added
+- `security-scan.yml` uploads `security-summary.json` (schema
+  `acald-creator/security-compliance-hub/security-summary/v1`) for dashboard
+  and Nexus consumers. The `vulnerabilities` workflow output is now populated.
+- `scripts/lib/html.ts` plus a Bun unit test for HTML escaping.
+- `compliance-report.json` alongside the HTML audit report.
+
 ### Changed
-- `scripts/setup-repo-security.sh`, `README.md`, and
-  `examples/target-repo-template/.github/workflows/security.yml`: pin the
-  example `workflow_call` references to `@v0` instead of `@main` now that
-  a stable tag exists. New consumers receive a pinned default; existing
-  consumers on `@main` are unaffected and can switch when convenient.
+- CodeQL runs once with detected languages instead of a five-language matrix
+  that failed on repos without those languages (and ran Semgrep five times).
+- PR comments from `aggregate-results` only run on `pull_request` (weekly
+  self-scan no longer tries to comment on a missing issue).
+- Scorecard `publish_results` is limited to public repositories.
+- Remaining third-party Actions in the reusable workflows are SHA-pinned.
+- Consumer templates stay pinned to `@v0` (from 2026-04-18 unreleased work).
+- `devsecops-infinity.yml` installs Bun before `bunx`, skips Cosign/OPA when
+  the caller has no image or policies, and uses `bun audit` instead of
+  `audit-ci` / `nancy`.
+- `compliance-dashboard.ts` paginates GitHub, and actually checks Dependabot,
+  vulnerability alerts, branch protection, signed commits, and OpenSSF.
+
+### Fixed
+- `aggregate-results` `outputs` / `permissions` stay distinct; `if: always()`
+  is preserved so skipped signing jobs still produce a score.
 
 ## [0.1.0] - 2026-04-18
 

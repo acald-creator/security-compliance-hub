@@ -4,7 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"audit:all": "bun scripts/compliance-dashboard.ts",
-		"setup:repo": "./scripts/setup-repo-security.sh"
+		"setup:repo": "./scripts/setup-repo-security.sh",
+		"test": "bun test"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.3",
