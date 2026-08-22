@@ -9,6 +9,18 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-21
+
+### Fixed
+- Infinity `release-phase` skips Cosign when a Dockerfile exists but the
+  image was never published to the registry (same skip as `deploy-phase`).
+
+### Changed
+- Consumer `security.yml` template includes `workflow_dispatch`.
+- Setup script fills `[OWNER]/[REPO]` in `SECURITY.md` and
+  `SECURITY-INSIGHTS.yml`, and only adds Dependabot ecosystems the target
+  repo actually uses.
+
 ## [0.2.3] - 2026-08-21
 
 ### Fixed
@@ -127,7 +139,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.4
 [0.2.3]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.3
 [0.2.2]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.2
 [0.2.1]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.1

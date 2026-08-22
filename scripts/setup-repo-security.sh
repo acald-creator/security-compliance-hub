@@ -122,6 +122,7 @@ on:
   pull_request:
   schedule:
     - cron: '0 0 * * 0' # Weekly scan
+  workflow_dispatch:
 
 jobs:
   security:
@@ -178,6 +179,7 @@ on:
   pull_request:
   schedule:
     - cron: '0 0 * * 0' # Weekly scan
+  workflow_dispatch:
 
 jobs:
   security:
@@ -228,11 +230,13 @@ fetch_file "config/cog.toml" cog.toml
 # Step 5: Create Dependabot config
 echo "🤖 Step 5: Setting up Dependabot..."
 mkdir -p .github
-cat > .github/dependabot.yml << 'EOF'
-version: 2
-updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+
+dependabot_entry() {
+  local ecosystem="$1"
+  local directory="$2"
+  cat <<EOF
+  - package-ecosystem: "${ecosystem}"
+    directory: "${directory}"
     schedule:
       interval: "weekly"
     labels:
@@ -240,6 +244,28 @@ updates:
       - "security"
     open-pull-requests-limit: 10
 EOF
+}
+
+{
+  echo "version: 2"
+  echo "updates:"
+  dependabot_entry "github-actions" "/"
+  if [ -f package.json ]; then
+    dependabot_entry "npm" "/"
+  fi
+  if [ -f Cargo.toml ]; then
+    dependabot_entry "cargo" "/"
+  fi
+  if [ -f go.mod ]; then
+    dependabot_entry "gomod" "/"
+  fi
+  if [ -f requirements.txt ] || [ -f pyproject.toml ]; then
+    dependabot_entry "pip" "/"
+  fi
+  if [ -f Dockerfile ] || [ -f docker-compose.yml ] || [ -f docker-compose.yaml ]; then
+    dependabot_entry "docker" "/"
+  fi
+} > .github/dependabot.yml
 
 # Step 6: Enable GitHub security features
 #
@@ -275,6 +301,32 @@ elif ! command -v gh >/dev/null 2>&1; then
 else
     gh api -X PUT "/repos/$REPO_SLUG/vulnerability-alerts" || true
     gh api -X PUT "/repos/$REPO_SLUG/automated-security-fixes" || true
+fi
+
+# Replace hub template placeholders with this repository's GitHub slug.
+if [ -n "$REPO_SLUG" ]; then
+  python3 - "$REPO_SLUG" <<'PY'
+import datetime
+import sys
+from pathlib import Path
+
+slug = sys.argv[1]
+today = datetime.date.today().isoformat()
+replacements = {
+    "[OWNER]/[REPO]": slug,
+    "[SECURITY_EMAIL]": f"https://github.com/{slug}/security/advisories/new",
+    "last-updated: \"2026-01-01\"": f'last-updated: "{today}"',
+    "last-reviewed: \"2026-01-01\"": f'last-reviewed: "{today}"',
+}
+for name in ("SECURITY.md", "SECURITY-INSIGHTS.yml"):
+    path = Path(name)
+    if not path.exists():
+        continue
+    text = path.read_text()
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    path.write_text(text)
+PY
 fi
 
 echo "✅ Security compliance setup complete!"

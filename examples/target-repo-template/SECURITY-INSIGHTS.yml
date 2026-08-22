@@ -29,8 +29,8 @@ security-artifacts:
         - "https://github.com/[OWNER]/[REPO]/blob/main/SECURITY.md"
 
 security-contacts:
-  - type: "email"
-    value: "[SECURITY_EMAIL]"
+  - type: "other"
+    value: "https://github.com/[OWNER]/[REPO]/security/advisories/new"
 
 security-testing:
   - tool-type: "sca"
@@ -57,6 +57,5 @@ security-testing:
 
 vulnerability-reporting:
   accepts-vulnerability-reports: true
-  email-contact: "[SECURITY_EMAIL]"
   security-policy: "https://github.com/[OWNER]/[REPO]/blob/main/SECURITY.md"
-  comment: "Please report vulnerabilities via email. Do not open a public issue."
+  comment: "Report vulnerabilities via GitHub Security Advisories. Do not open a public issue."
