@@ -25,6 +25,8 @@ consumers should pin references to these workflows.
   scanning stays on OSV. The unused `Dependency-Check_Action` step is gone.
 - Scorecard `publish_results` is off in this suite: OpenSSF rejects workflows
   that also grant `id-token` to Cosign. SARIF still uploads to the Security tab.
+  The Scorecard job does not request `actions: read` (callers typically grant
+  `actions: none`, which blocked reusable-workflow startup).
 
 ## [0.2.0] - 2026-08-21
 
