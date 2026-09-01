@@ -121,6 +121,7 @@ Known limits of this suite:
 - For build outputs, the caller should upload an artifact in a job that the security job `needs`, then pass both `artifact-name` and the path inside the downloaded artifact.
 - The summary records SHA-256 digests for the attested artifact, SBOM, SBOM signature, and certificate, plus the GitHub attestation ID and URL when provenance is created.
 - When `phase: all` reaches deploy for a published image, `certificate-identity-regexp` must be configured; otherwise verification fails closed. Set `require-image-verification: true` to also fail when the expected image has not been published.
+- Image release and SBOM attestation honor the selected `image-tag`; deploy resolves that tag once and verifies the resulting immutable digest.
 - Dependency scanning reports `not_applicable` when no supported dependency manifest exists, rather than awarding a passing dependency score without evidence.
 - If GitHub default CodeQL setup is enabled on the caller, advanced CodeQL is skipped; Semgrep still runs.
 - When `openssf` is omitted from `compliance-frameworks`, OpenSSF is reported as `not_requested` and excluded from the score denominator.

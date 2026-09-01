@@ -9,6 +9,8 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+- Use the selected image tag for SBOM attestations and verify published images by their resolved immutable digest.
+
 ## [0.2.6] - 2026-09-01
 
 - Refresh security action pins and Bun tooling dependencies; migrate the Biome configuration.

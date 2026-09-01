@@ -209,7 +209,7 @@ jobs:
           cosign attest --yes \
             --predicate sbom.json \
             --type spdx \
-            "${REGISTRY}/${IMAGE}:${{ github.sha }}"
+            "${REGISTRY}/${IMAGE}:${IMAGE_TAG}"
 
   # ♾️ DEPLOY - Secure Deployment
   deploy-phase:
@@ -271,12 +271,12 @@ jobs:
           if cosign verify \
               --certificate-identity-regexp "$CERTIFICATE_IDENTITY_REGEXP" \
               --certificate-oidc-issuer-regexp "$CERTIFICATE_OIDC_ISSUER_REGEXP" \
-              "$IMAGE_REF"; then
+              "${REGISTRY}/${IMAGE}@${IMAGE_DIGEST}"; then
             echo "status=verified" >> "$GITHUB_OUTPUT"
-            echo "reason=Cosign verified $IMAGE_REF with the configured identity and issuer" >> "$GITHUB_OUTPUT"
+            echo "reason=Cosign verified ${REGISTRY}/${IMAGE}@${IMAGE_DIGEST} with the configured identity and issuer" >> "$GITHUB_OUTPUT"
           else
             echo "status=failed" >> "$GITHUB_OUTPUT"
-            echo "reason=Cosign could not verify $IMAGE_REF with the configured identity and issuer" >> "$GITHUB_OUTPUT"
+            echo "reason=Cosign could not verify ${REGISTRY}/${IMAGE}@${IMAGE_DIGEST} with the configured identity and issuer" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
