@@ -6,10 +6,12 @@ name: Security Compliance
 # these if you do not want to allow write operations from the workflow.
 permissions:
   id-token: write
-  contents: write
+  contents: read
   packages: write
   security-events: write
   pull-requests: write
+  # Uncomment when artifact-path is configured below.
+  # attestations: write
 
 on:
   push:
@@ -21,17 +23,19 @@ on:
 
 jobs:
   security:
-    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0
+    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0.2.5
     with:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
+      # Optional: attest a built artifact with GitHub's SLSA provenance.
+      # artifact-path: dist/example
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
-    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
+    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0.2.5
     with:
       phase: all

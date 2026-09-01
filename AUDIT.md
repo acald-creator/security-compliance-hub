@@ -63,7 +63,7 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 | Remaining Actions still on moving tags | SHA-pinned in reusable workflows |
 | Infinity: no Bun, OPA always, Cosign always | Skip/install guards |
 | Dashboard: no pagination; Dependabot/alerts/protection/signing/OpenSSF never queried | Implemented |
-| Nested SLSA generic generator `base64-subjects` is still a commit SHA, not artifact hashes | **Still open** — do not treat SLSA as production-ready |
+| Nested SLSA generic generator `base64-subjects` is still a commit SHA, not artifact hashes | **Resolved for caller-supplied artifacts** — GitHub Artifact Attestations now emits provenance when `artifact-path` and `attestations: write` are provided; source-only scans remain `not_requested` |
 | Gitleaks Action license on some orgs | **Open** — personal public repos OK with `GITHUB_TOKEN` |
 | Nexus evidence mapping | **Open** — see portfolio `docs/system-workflow.md` Layer 4 |
 | Self-scan dogfood: TruffleHog BASE==HEAD, OSV missing `runs:`, OWASP NVD key, Scorecard publish | Fixed in `v0.2.1` |
@@ -74,5 +74,5 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 
 1. Tag `v0.2.0` only after CI (and a `workflow_dispatch` self-scan) is green.
 2. Stamp onto 5–10 public originals, not every fork.
-3. Fill SLSA subjects from SBOM hashes or drop the nested generator until then.
+3. Add fixture-repository integration tests for artifact-path attestation and strict verification.
 4. Then expand Underground Nexus as a host-level consumer of `security-summary/v1`.

@@ -28,7 +28,7 @@ This project follows these security practices:
 - Static analysis is performed with Semgrep and CodeQL.
 - Security CI is provided by
   [`security-compliance-hub`](https://github.com/acald-creator/security-compliance-hub)
-  (`@v0`).
+  (pinned to an exact release or commit SHA).
 
 ## Disclosure Policy
 

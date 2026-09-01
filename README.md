@@ -2,9 +2,9 @@
 
 Reusable GitHub Actions that other repositories pin for secret scanning, SAST, SCA, container checks, SBOM signing, and OpenSSF Scorecard.
 
-This is the enforce layer of a DevSecOps portfolio: stamp a repo, pin `@v0`, and let CI run the suite. Scoring and Showcase live in a separate operator console, not in this repository.
+This is the enforce layer of a DevSecOps portfolio: stamp a repo, pin an immutable hub release, and let CI run the suite. Scoring and Showcase live in a separate operator console, not in this repository.
 
-Current release: **[v0.2.5](https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.5)**. Consumers pin `@v0`.
+Current release: **[v0.2.5](https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.5)**. New consumers should pin an exact release or commit SHA.
 
 ## What it ships
 
@@ -37,7 +37,7 @@ lefthook install
 Stamp another repository:
 
 ```bash
-./scripts/setup-repo-security.sh /path/to/target-repo
+SECURITY_HUB_REF=v0.2.5 ./scripts/setup-repo-security.sh /path/to/target-repo
 # commit, push, then:
 gh workflow run security.yml --repo acald-creator/<repo> --ref main
 ```
@@ -59,25 +59,30 @@ on:
 
 permissions:
   id-token: write
-  contents: write
+  contents: read
+  # Required by devsecops-infinity's release phase when it signs/publishes an image.
   packages: write
   security-events: write
   pull-requests: write
+  # Required only when artifact-path is configured below.
+  attestations: write
 
 jobs:
   security:
-    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0
+    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0.2.5
     with:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
+      # Optional: attest a built artifact with GitHub's SLSA provenance.
+      # artifact-path: dist/example
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
-    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
+    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0.2.5
     with:
       phase: all
 ```
@@ -90,6 +95,7 @@ jobs:
 | `severity-threshold` | `HIGH` | Minimum severity that fails the build |
 | `compliance-frameworks` | `openssf,owasp,slsa` | Comma-separated list of frameworks to check |
 | `enable-signing` | `true` | Enable Sigstore SBOM signing |
+| `artifact-path` | empty | Optional built artifact path for SLSA provenance attestation; requires `attestations: write` |
 
 Optional secrets: `NVD_API_KEY` (OWASP Dependency-Check NVD feed), `SNYK_TOKEN`, `SONAR_TOKEN`. Without `NVD_API_KEY`, that CVE feed is skipped; OSV Scanner still runs.
 
@@ -98,7 +104,8 @@ Outputs: `security-score`, `compliance-status`, and `vulnerabilities` (comma-sep
 Known limits of this suite:
 
 - Scorecard uploads SARIF to the GitHub Security tab with `publish_results: false` (OpenSSF rejects publishing from a workflow that also grants `id-token` to Cosign). Do not request `actions: read` on the Scorecard job.
-- Nested SLSA generators are omitted (passing `GITHUB_TOKEN` as a named secret failed reusable-workflow startup).
+- SBOM signing and SLSA provenance are separate controls. SBOM signing runs when enabled; SLSA provenance is `not_requested` unless the caller supplies `artifact-path` and grants `attestations: write`.
+- The reusable workflow uses GitHub Artifact Attestations for caller-supplied artifacts. It does not infer an artifact from a source checkout.
 - If GitHub default CodeQL setup is enabled on the caller, advanced CodeQL is skipped; Semgrep still runs.
 
 ### devsecops-infinity.yml inputs
@@ -113,9 +120,9 @@ Known limits of this suite:
 
 Consumers should pin, in order of preference:
 
-1. **Moving major tag** — `@v0` today. Receives non-breaking updates within the major line. Maintained by `.github/workflows/release.yml` when a semver tag is cut.
+1. **Commit SHA** — `@<40-char-sha>`. Maximum reproducibility.
 2. **Exact release tag** — `@v0.2.5`. Immutable once published.
-3. **Commit SHA** — `@<40-char-sha>`. Maximum reproducibility.
+3. **Moving major tag** — `@v0`. Receives non-breaking updates within the major line. Use only when that update policy is acceptable.
 
 Avoid `@main` in production.
 

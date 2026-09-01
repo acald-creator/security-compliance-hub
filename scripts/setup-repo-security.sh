@@ -5,12 +5,18 @@ set -e
 
 REPO_PATH=${1:-.}
 SECURITY_HUB_URL="https://github.com/acald-creator/security-compliance-hub"
+SECURITY_HUB_REF=${SECURITY_HUB_REF:-v0.2.5}
+
+if [[ ! "$SECURITY_HUB_REF" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+  echo "❌ SECURITY_HUB_REF contains unsupported characters: $SECURITY_HUB_REF" >&2
+  exit 1
+fi
 
 echo "🔐 Setting up security compliance for repository: $REPO_PATH"
 
 cd "$REPO_PATH"
 
-# Helper: download a file from the hub raw URL; if the response is HTML or 404,
+# Helper: download a file from the pinned hub release; if the response is HTML or 404,
 # warn the user and skip the file. This avoids writing GitHub HTML error pages
 # or unrelated content into configuration files when the remote path doesn't
 # exist or network access is restricted.
@@ -24,7 +30,7 @@ cd "$REPO_PATH"
 fetch_file() {
   local remote_path="$1"
   local dest="$2"
-  local url="$SECURITY_HUB_URL/raw/main/$remote_path"
+  local url="$SECURITY_HUB_URL/raw/$SECURITY_HUB_REF/$remote_path"
   local tmpfile="/tmp/setup_repo_fetch_body.$$"
 
   # Guard: do not overwrite existing files unless explicitly requested
@@ -87,6 +93,13 @@ fetch_file() {
   mv "$tmpfile" "$dest"
 }
 
+replace_workflow_ref() {
+  local path="$1"
+  local tmpfile="${path}.tmp.$$"
+  sed "s|@__SECURITY_HUB_REF__|@${SECURITY_HUB_REF}|g" "$path" > "$tmpfile"
+  mv "$tmpfile" "$path"
+}
+
 # Step 1: Create security workflow (or templates when running inside the hub repo)
 echo "📋 Step 1: Adding security workflow..."
 
@@ -111,10 +124,12 @@ name: Security Compliance
 # these if you do not want to allow write operations from the workflow.
 permissions:
   id-token: write
-  contents: write
+  contents: read
   packages: write
   security-events: write
   pull-requests: write
+  # Uncomment when artifact-path is configured below.
+  # attestations: write
 
 on:
   push:
@@ -126,21 +141,26 @@ on:
 
 jobs:
   security:
-    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0
+    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@__SECURITY_HUB_REF__
     with:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
+      # Add artifact-path and attestations: write when the target builds a
+      # file that should receive SLSA provenance.
+      # artifact-path: dist/example
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
-    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
+    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@__SECURITY_HUB_REF__
     with:
       phase: all
 EOF
+
+  replace_workflow_ref "$TEMPLATE_DIR/.github/workflows/security.yml"
 
   # Also create empty placeholders for the other artifacts in the template dir
   fetch_file "templates/SECURITY.md" "$TEMPLATE_DIR/SECURITY.md"
@@ -170,10 +190,12 @@ name: Security Compliance
 # these if you do not want to allow write operations from the workflow.
 permissions:
   id-token: write
-  contents: write
+  contents: read
   packages: write
   security-events: write
   pull-requests: write
+  # Uncomment when artifact-path is configured below.
+  # attestations: write
 
 on:
   push:
@@ -185,21 +207,25 @@ on:
 
 jobs:
   security:
-    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0
+    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@__SECURITY_HUB_REF__
     with:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
+      # Add artifact-path and attestations: write when the target builds a
+      # file that should receive SLSA provenance.
+      # artifact-path: dist/example
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
-    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0
+    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@__SECURITY_HUB_REF__
     with:
       phase: all
 EOF
+  replace_workflow_ref "$REPO_PATH/.github/workflows/security.yml"
 fi
 
 # Step 2: Add security files

@@ -24,6 +24,11 @@ on:
         required: false
         type: boolean
         default: true
+      artifact-path:
+        description: 'Optional path to a built artifact for SLSA provenance attestation'
+        required: false
+        type: string
+        default: ''
     secrets:
       SNYK_TOKEN:
         required: false
@@ -44,6 +49,9 @@ on:
       vulnerabilities:
         description: 'Vulnerability summary'
         value: ${{ jobs.aggregate-results.outputs.vulnerabilities }}
+      provenance-status:
+        description: 'SLSA provenance status for the supplied artifact'
+        value: ${{ jobs.aggregate-results.outputs.provenance_status }}
 
 jobs:
   # 🔍 Secret Scanning
@@ -230,13 +238,17 @@ jobs:
     name: Supply Chain Security
     runs-on: ubuntu-latest
     if: ${{ inputs.enable-signing }}
+    outputs:
+      provenance_status: ${{ steps.provenance_status.outputs.status }}
     permissions:
       # Request only the minimal permission needed for OIDC/cosign operations.
       # Do NOT request `contents: write` or `packages: write` here so callers
       # that only grant read access can still reuse this workflow. If a
       # caller needs to grant elevated permissions (for signing/pushing to
       # package registries), they should set them in the calling workflow.
+      contents: read
       id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
@@ -258,6 +270,51 @@ jobs:
             --output-signature sbom.spdx.json.sig \
             --output-certificate sbom.spdx.json.crt \
             sbom.spdx.json
+
+      - name: Validate provenance subject
+        id: provenance_subject
+        env:
+          SUBJECT_PATH: ${{ inputs.artifact-path }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SUBJECT_PATH" ]; then
+            echo "No artifact-path supplied; SBOM signing will run without SLSA provenance."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ ! -f "$SUBJECT_PATH" ]; then
+            echo "::error::Configured artifact-path does not exist: $SUBJECT_PATH"
+            exit 1
+          fi
+          echo "available=true" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SLSA provenance attestation
+        id: provenance
+        if: steps.provenance_subject.outputs.available == 'true'
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: ${{ inputs.artifact-path }}
+
+      - name: Record provenance status
+        id: provenance_status
+        if: always()
+        env:
+          SUBJECT_PATH: ${{ inputs.artifact-path }}
+          VALIDATION_OUTCOME: ${{ steps.provenance_subject.outcome }}
+          ATTESTATION_OUTCOME: ${{ steps.provenance.outcome }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SUBJECT_PATH" ]; then
+            status="not_requested"
+          elif [ "$VALIDATION_OUTCOME" = "failure" ] || [ "$ATTESTATION_OUTCOME" = "failure" ]; then
+            status="failed"
+          elif [ "$ATTESTATION_OUTCOME" = "success" ]; then
+            status="attested"
+          else
+            status="unknown"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "SLSA provenance status: $status"
       
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -361,6 +418,7 @@ jobs:
       score: ${{ steps.calculate.outputs.score }}
       compliance: ${{ steps.calculate.outputs.compliance }}
       vulnerabilities: ${{ steps.calculate.outputs.vulnerabilities }}
+      provenance_status: ${{ steps.calculate.outputs.provenance }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -378,6 +436,7 @@ jobs:
           OWASP: ${{ needs.owasp-check.result }}
           SUPPLY: ${{ needs.supply-chain.result }}
           SIGNING: ${{ inputs.enable-signing }}
+          SLSA: ${{ needs.supply-chain.outputs.provenance_status }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
@@ -402,16 +461,17 @@ jobs:
           if [ "$SIGNING" = "true" ]; then
             if [ "$SUPPLY" = "success" ]; then SCORE=$((SCORE + 15)); fi
             TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
-            SLSA_STATUS="$SUPPLY"
+            SLSA_STATUS="${SLSA:-unknown}"
           else
             SLSA_STATUS="not_requested"
           fi
 
           FINAL_SCORE=$((SCORE * 100 / TOTAL_CHECKS))
           echo "score=$FINAL_SCORE" >> "$GITHUB_OUTPUT"
+          echo "provenance=$SLSA_STATUS" >> "$GITHUB_OUTPUT"
 
           FAILED=""
-          for pair in "secret:$SECRET" "sast:$SAST" "dependency:$DEPS" "container:$CONTAINER" "openssf:$OPENSFF" "owasp:$OWASP"; do
+          for pair in "secret:$SECRET" "sast:$SAST" "dependency:$DEPS" "container:$CONTAINER" "openssf:$OPENSFF" "owasp:$OWASP" "supply_chain:$SUPPLY"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             if [ "$result" = "failure" ]; then
@@ -430,6 +490,10 @@ jobs:
             "sha": "$SHA",
             "score": $FINAL_SCORE,
             "compliance": $COMPLIANCE,
+            "evidence": {
+              "sbom_signing": "$SUPPLY",
+              "slsa_provenance": "$SLSA_STATUS"
+            },
             "jobs": {
               "secret": "$SECRET",
               "sast": "$SAST",
