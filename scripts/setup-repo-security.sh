@@ -150,6 +150,7 @@ jobs:
       # file that should receive SLSA provenance.
       # artifact-name: build-artifact
       # artifact-path: dist/example
+      # require-owasp-dependency-check: true
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -220,6 +221,7 @@ jobs:
       # file that should receive SLSA provenance.
       # artifact-name: build-artifact
       # artifact-path: dist/example
+      # require-owasp-dependency-check: true
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

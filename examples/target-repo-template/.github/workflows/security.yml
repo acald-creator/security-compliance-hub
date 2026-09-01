@@ -31,6 +31,7 @@ jobs:
       # Optional: attest a built artifact with GitHub's SLSA provenance.
       # artifact-name: build-artifact
       # artifact-path: dist/example
+      # require-owasp-dependency-check: true
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

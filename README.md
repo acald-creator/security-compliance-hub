@@ -78,6 +78,7 @@ jobs:
       # Optional: attest a built artifact with GitHub's SLSA provenance.
       # artifact-name: build-artifact
       # artifact-path: dist/example
+      # require-owasp-dependency-check: true
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -102,8 +103,9 @@ jobs:
 | `enable-signing` | `true` | Enable Sigstore SBOM signing |
 | `artifact-path` | empty | Optional built artifact path for SLSA provenance attestation; requires `attestations: write` |
 | `artifact-name` | empty | Optional artifact uploaded by an earlier caller job; downloaded before using `artifact-path` |
+| `require-owasp-dependency-check` | `false` | Fail when OWASP is enabled but `NVD_API_KEY` is unavailable |
 
-Optional secrets: `NVD_API_KEY` (OWASP Dependency-Check NVD feed), `SNYK_TOKEN`, `SONAR_TOKEN`. Without `NVD_API_KEY`, that CVE feed is skipped; OSV Scanner still runs.
+Optional secrets: `NVD_API_KEY` (OWASP Dependency-Check NVD feed), `SNYK_TOKEN`, `SONAR_TOKEN`. Without `NVD_API_KEY`, OWASP Dependency-Check is reported as `unknown`; OSV Scanner still runs. Set `require-owasp-dependency-check: true` to fail instead.
 
 Semgrep and Trivy honor `severity-threshold`. OSV Scanner keeps its native exit
 policy, and OWASP Dependency-Check requires `NVD_API_KEY` when enabled.

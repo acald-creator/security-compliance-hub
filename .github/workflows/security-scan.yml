@@ -34,6 +34,11 @@ on:
         required: false
         type: string
         default: ''
+      require-owasp-dependency-check:
+        description: 'Fail when OWASP Dependency-Check is enabled but NVD_API_KEY is missing'
+        required: false
+        type: boolean
+        default: false
     secrets:
       SNYK_TOKEN:
         required: false
@@ -57,6 +62,9 @@ on:
       provenance-status:
         description: 'SLSA provenance status for the supplied artifact'
         value: ${{ jobs.aggregate-results.outputs.provenance_status }}
+      owasp-dependency-check-status:
+        description: 'OWASP Dependency-Check evidence status'
+        value: ${{ jobs.aggregate-results.outputs.owasp_dependency_check_status }}
 
 jobs:
   # 🔍 Secret Scanning
@@ -427,6 +435,8 @@ jobs:
     name: OWASP Compliance
     runs-on: ubuntu-latest
     if: contains(inputs.compliance-frameworks, 'owasp')
+    outputs:
+      dependency_check_status: ${{ steps.record_dependency_check_status.outputs.status }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -440,13 +450,20 @@ jobs:
           echo "SECURITY.md present"
 
       - name: OWASP Dependency-Check
+        id: dependency_check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          REQUIRE_OWASP_DEPENDENCY_CHECK: ${{ inputs.require-owasp-dependency-check }}
         run: |
           set -euo pipefail
           if [ -z "${NVD_API_KEY}" ]; then
-            echo "Skipping OWASP Dependency-Check: NVD_API_KEY is not set."
+            echo "::warning::OWASP Dependency-Check is unknown: NVD_API_KEY is not set."
             echo "CVE scanning still runs via OSV Scanner in the Dependency Security job."
+            echo "status=unknown" >> "$GITHUB_OUTPUT"
+            if [ "$REQUIRE_OWASP_DEPENDENCY_CHECK" = "true" ]; then
+              echo "::error::require-owasp-dependency-check is enabled but NVD_API_KEY is missing."
+              exit 1
+            fi
             exit 0
           fi
           docker run --rm \
@@ -457,6 +474,27 @@ jobs:
             --format JSON \
             --nvdApiKey "$NVD_API_KEY" \
             --out /src/dependency-check-report.json
+          echo "status=passed" >> "$GITHUB_OUTPUT"
+
+      - name: Record OWASP Dependency-Check status
+        id: record_dependency_check_status
+        if: always()
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          DEPENDENCY_CHECK_OUTCOME: ${{ steps.dependency_check.outcome }}
+        run: |
+          set -euo pipefail
+          if [ -z "$NVD_API_KEY" ]; then
+            status="unknown"
+          elif [ "$DEPENDENCY_CHECK_OUTCOME" = "success" ]; then
+            status="passed"
+          elif [ "$DEPENDENCY_CHECK_OUTCOME" = "failure" ]; then
+            status="failed"
+          else
+            status="unknown"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "OWASP Dependency-Check evidence status: $status"
 
   # 🏁 Aggregate Results
   aggregate-results:
@@ -476,6 +514,7 @@ jobs:
       compliance: ${{ steps.calculate.outputs.compliance }}
       vulnerabilities: ${{ steps.calculate.outputs.vulnerabilities }}
       provenance_status: ${{ steps.calculate.outputs.provenance }}
+      owasp_dependency_check_status: ${{ steps.calculate.outputs.owasp_dependency_check }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -494,6 +533,7 @@ jobs:
           SUPPLY: ${{ needs.supply-chain.result }}
           SIGNING: ${{ inputs.enable-signing }}
           SLSA: ${{ needs.supply-chain.outputs.provenance_status }}
+          OWASP_EVIDENCE: ${{ needs.owasp-check.outputs.dependency_check_status }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
@@ -523,9 +563,18 @@ jobs:
             SLSA_STATUS="not_requested"
           fi
 
+          if [ "$OWASP" = "skipped" ]; then
+            OWASP_EVIDENCE_STATUS="not_requested"
+          elif [ -n "$OWASP_EVIDENCE" ]; then
+            OWASP_EVIDENCE_STATUS="$OWASP_EVIDENCE"
+          else
+            OWASP_EVIDENCE_STATUS="unknown"
+          fi
+
           FINAL_SCORE=$((SCORE * 100 / TOTAL_CHECKS))
           echo "score=$FINAL_SCORE" >> "$GITHUB_OUTPUT"
           echo "provenance=$SLSA_STATUS" >> "$GITHUB_OUTPUT"
+          echo "owasp_dependency_check=$OWASP_EVIDENCE_STATUS" >> "$GITHUB_OUTPUT"
 
           FAILED=""
           for pair in "secret:$SECRET" "sast:$SAST" "dependency:$DEPS" "container:$CONTAINER" "openssf:$OPENSFF" "owasp:$OWASP" "supply_chain:$SUPPLY"; do
@@ -537,7 +586,7 @@ jobs:
           done
           echo "vulnerabilities=${FAILED:-none}" >> "$GITHUB_OUTPUT"
 
-          COMPLIANCE="{\"openssf\":\"$OPENSFF\",\"owasp\":\"$OWASP\",\"slsa\":\"$SLSA_STATUS\"}"
+          COMPLIANCE="{\"openssf\":\"$OPENSFF\",\"owasp\":\"$OWASP_EVIDENCE_STATUS\",\"slsa\":\"$SLSA_STATUS\"}"
           echo "compliance=$COMPLIANCE" >> "$GITHUB_OUTPUT"
 
           cat > security-summary.json <<EOF
@@ -549,7 +598,8 @@ jobs:
             "compliance": $COMPLIANCE,
             "evidence": {
               "sbom_signing": "$SUPPLY",
-              "slsa_provenance": "$SLSA_STATUS"
+              "slsa_provenance": "$SLSA_STATUS",
+              "owasp_dependency_check": "$OWASP_EVIDENCE_STATUS"
             },
             "jobs": {
               "secret": "$SECRET",
@@ -584,8 +634,9 @@ jobs:
 
             ### Compliance Status
             - OpenSSF Scorecard: ${{ needs.openssf-scorecard.result }}
-            - OWASP Compliance: ${{ needs.owasp-check.result }}
-            - Supply Chain Security: ${{ needs.supply-chain.result }}
+            - OWASP Dependency-Check: ${{ needs.owasp-check.outputs.dependency_check_status || 'not_requested' }}
+            - SBOM signing: ${{ needs.supply-chain.result }}
+            - SLSA provenance: ${{ needs.supply-chain.outputs.provenance_status || 'not_requested' }}
 
             ### Security Checks
             - Secret Scanning: ${{ needs.secret-scan.result }}
