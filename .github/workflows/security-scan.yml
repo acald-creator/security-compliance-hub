@@ -65,6 +65,15 @@ on:
       owasp-dependency-check-status:
         description: 'OWASP Dependency-Check evidence status'
         value: ${{ jobs.aggregate-results.outputs.owasp_dependency_check_status }}
+      sbom-digest:
+        description: 'SHA-256 digest of the generated SPDX SBOM'
+        value: ${{ jobs.aggregate-results.outputs.sbom_digest }}
+      artifact-digest:
+        description: 'SHA-256 digest of the attested artifact'
+        value: ${{ jobs.aggregate-results.outputs.artifact_digest }}
+      attestation-url:
+        description: 'URL of the generated artifact attestation summary'
+        value: ${{ jobs.aggregate-results.outputs.attestation_url }}
 
 jobs:
   # 🔍 Secret Scanning
@@ -293,6 +302,12 @@ jobs:
     if: ${{ inputs.enable-signing }}
     outputs:
       provenance_status: ${{ steps.provenance_status.outputs.status }}
+      sbom_digest: ${{ steps.provenance_status.outputs.sbom_digest }}
+      sbom_signature_digest: ${{ steps.provenance_status.outputs.sbom_signature_digest }}
+      sbom_certificate_digest: ${{ steps.provenance_status.outputs.sbom_certificate_digest }}
+      artifact_digest: ${{ steps.provenance_status.outputs.artifact_digest }}
+      attestation_id: ${{ steps.provenance_status.outputs.attestation_id }}
+      attestation_url: ${{ steps.provenance_status.outputs.attestation_url }}
     permissions:
       # Request only the minimal permission needed for OIDC/cosign operations.
       # Do NOT request `contents: write` or `packages: write` here so callers
@@ -367,6 +382,8 @@ jobs:
           SUBJECT_PATH: ${{ inputs.artifact-path }}
           VALIDATION_OUTCOME: ${{ steps.provenance_subject.outcome }}
           ATTESTATION_OUTCOME: ${{ steps.provenance.outcome }}
+          ATTESTATION_ID: ${{ steps.provenance.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.provenance.outputs.attestation-url }}
         run: |
           set -euo pipefail
           if [ -z "$SUBJECT_PATH" ]; then
@@ -378,6 +395,23 @@ jobs:
           else
             status="unknown"
           fi
+          digest_for() {
+            if [ -f "$1" ]; then
+              sha256sum "$1" | awk '{print "sha256:" $1}'
+            else
+              echo ""
+            fi
+          }
+          echo "sbom_digest=$(digest_for sbom.spdx.json)" >> "$GITHUB_OUTPUT"
+          echo "sbom_signature_digest=$(digest_for sbom.spdx.json.sig)" >> "$GITHUB_OUTPUT"
+          echo "sbom_certificate_digest=$(digest_for sbom.spdx.json.crt)" >> "$GITHUB_OUTPUT"
+          if [ -n "$SUBJECT_PATH" ]; then
+            echo "artifact_digest=$(digest_for "$SUBJECT_PATH")" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact_digest=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "attestation_id=$ATTESTATION_ID" >> "$GITHUB_OUTPUT"
+          echo "attestation_url=$ATTESTATION_URL" >> "$GITHUB_OUTPUT"
           echo "status=$status" >> "$GITHUB_OUTPUT"
           echo "SLSA provenance status: $status"
       
@@ -515,6 +549,9 @@ jobs:
       vulnerabilities: ${{ steps.calculate.outputs.vulnerabilities }}
       provenance_status: ${{ steps.calculate.outputs.provenance }}
       owasp_dependency_check_status: ${{ steps.calculate.outputs.owasp_dependency_check }}
+      sbom_digest: ${{ steps.calculate.outputs.sbom_digest }}
+      artifact_digest: ${{ steps.calculate.outputs.artifact_digest }}
+      attestation_url: ${{ steps.calculate.outputs.attestation_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -534,6 +571,12 @@ jobs:
           SIGNING: ${{ inputs.enable-signing }}
           SLSA: ${{ needs.supply-chain.outputs.provenance_status }}
           OWASP_EVIDENCE: ${{ needs.owasp-check.outputs.dependency_check_status }}
+          SBOM_DIGEST: ${{ needs.supply-chain.outputs.sbom_digest }}
+          SBOM_SIGNATURE_DIGEST: ${{ needs.supply-chain.outputs.sbom_signature_digest }}
+          SBOM_CERTIFICATE_DIGEST: ${{ needs.supply-chain.outputs.sbom_certificate_digest }}
+          ARTIFACT_DIGEST: ${{ needs.supply-chain.outputs.artifact_digest }}
+          ATTESTATION_ID: ${{ needs.supply-chain.outputs.attestation_id }}
+          ATTESTATION_URL: ${{ needs.supply-chain.outputs.attestation_url }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
@@ -571,6 +614,13 @@ jobs:
             OWASP_EVIDENCE_STATUS="unknown"
           fi
 
+          SBOM_DIGEST="${SBOM_DIGEST:-unknown}"
+          SBOM_SIGNATURE_DIGEST="${SBOM_SIGNATURE_DIGEST:-unknown}"
+          SBOM_CERTIFICATE_DIGEST="${SBOM_CERTIFICATE_DIGEST:-unknown}"
+          ARTIFACT_DIGEST="${ARTIFACT_DIGEST:-unknown}"
+          ATTESTATION_ID="${ATTESTATION_ID:-unknown}"
+          ATTESTATION_URL="${ATTESTATION_URL:-unknown}"
+
           FINAL_SCORE=$((SCORE * 100 / TOTAL_CHECKS))
           echo "score=$FINAL_SCORE" >> "$GITHUB_OUTPUT"
           echo "provenance=$SLSA_STATUS" >> "$GITHUB_OUTPUT"
@@ -599,7 +649,13 @@ jobs:
             "evidence": {
               "sbom_signing": "$SUPPLY",
               "slsa_provenance": "$SLSA_STATUS",
-              "owasp_dependency_check": "$OWASP_EVIDENCE_STATUS"
+              "owasp_dependency_check": "$OWASP_EVIDENCE_STATUS",
+              "artifact_digest": "$ARTIFACT_DIGEST",
+              "sbom_digest": "$SBOM_DIGEST",
+              "sbom_signature_digest": "$SBOM_SIGNATURE_DIGEST",
+              "sbom_certificate_digest": "$SBOM_CERTIFICATE_DIGEST",
+              "attestation_id": "$ATTESTATION_ID",
+              "attestation_url": "$ATTESTATION_URL"
             },
             "jobs": {
               "secret": "$SECRET",
@@ -637,6 +693,7 @@ jobs:
             - OWASP Dependency-Check: ${{ needs.owasp-check.outputs.dependency_check_status || 'not_requested' }}
             - SBOM signing: ${{ needs.supply-chain.result }}
             - SLSA provenance: ${{ needs.supply-chain.outputs.provenance_status || 'not_requested' }}
+            - SBOM digest: ${{ needs.supply-chain.outputs.sbom_digest || 'not_available' }}
 
             ### Security Checks
             - Secret Scanning: ${{ needs.secret-scan.result }}

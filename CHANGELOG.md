@@ -15,6 +15,7 @@ consumers should pin references to these workflows.
 - Add a manual artifact-attestation integration fixture workflow.
 - Enforce Semgrep and Trivy severity thresholds and stop swallowing CodeQL failures.
 - Report missing OWASP NVD credentials as `unknown` with an opt-in hard-fail policy.
+- Add SBOM, signature, certificate, and provenance attestation references to the security summary.
 - Separate SBOM signing status from SLSA provenance status in `security-summary/v1`.
 - Make repository stamping fetch the exact `v0.2.5` release by default, with `SECURITY_HUB_REF` override support.
 

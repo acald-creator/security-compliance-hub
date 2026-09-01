@@ -110,7 +110,7 @@ Optional secrets: `NVD_API_KEY` (OWASP Dependency-Check NVD feed), `SNYK_TOKEN`,
 Semgrep and Trivy honor `severity-threshold`. OSV Scanner keeps its native exit
 policy, and OWASP Dependency-Check requires `NVD_API_KEY` when enabled.
 
-Outputs: `security-score`, `compliance-status`, and `vulnerabilities` (comma-separated failed job names, or `none`). The `security-summary` artifact is `security-summary.json`.
+Outputs: `security-score`, `compliance-status`, `vulnerabilities` (comma-separated failed job names, or `none`), `provenance-status`, `owasp-dependency-check-status`, `artifact-digest`, `sbom-digest`, and `attestation-url`. The `security-summary` artifact is `security-summary.json`.
 
 Known limits of this suite:
 
@@ -118,6 +118,7 @@ Known limits of this suite:
 - SBOM signing and SLSA provenance are separate controls. SBOM signing runs when enabled; SLSA provenance is `not_requested` unless the caller supplies `artifact-path` and grants `attestations: write`.
 - The reusable workflow uses GitHub Artifact Attestations for caller-supplied artifacts. It does not infer an artifact from a source checkout.
 - For build outputs, the caller should upload an artifact in a job that the security job `needs`, then pass both `artifact-name` and the path inside the downloaded artifact.
+- The summary records SHA-256 digests for the attested artifact, SBOM, SBOM signature, and certificate, plus the GitHub attestation ID and URL when provenance is created.
 - When `phase: all` reaches deploy for a published image, `certificate-identity-regexp` must be configured; otherwise verification fails closed. Set `require-image-verification: true` to also fail when the expected image has not been published.
 - If GitHub default CodeQL setup is enabled on the caller, advanced CodeQL is skipped; Semgrep still runs.
 
