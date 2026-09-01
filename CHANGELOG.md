@@ -9,6 +9,9 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-09-01
+
+- Refresh security action pins and Bun tooling dependencies; migrate the Biome configuration.
 - Add optional GitHub Artifact Attestations for caller-supplied build artifacts.
 - Support downloading caller-uploaded build artifacts before provenance attestation.
 - Require a trusted Cosign certificate identity when verifying published images.
@@ -18,7 +21,7 @@ consumers should pin references to these workflows.
 - Add SBOM, signature, certificate, and provenance attestation references to the security summary.
 - Mark dependency scanning `not_applicable` when no supported manifest exists and exclude it from scoring.
 - Separate SBOM signing status from SLSA provenance status in `security-summary/v1`.
-- Make repository stamping fetch the exact `v0.2.5` release by default, with `SECURITY_HUB_REF` override support.
+- Make repository stamping fetch the exact release by default, with `SECURITY_HUB_REF` override support.
 - Add per-control evidence to the dashboard JSON and distinguish unavailable API checks as `unknown` instead of non-compliant.
 - Check signed-commit enforcement through required-signature protection and active branch rulesets rather than the latest commit alone.
 - Extract dashboard scoring into a pure module with unit coverage for unknown and not-applicable evidence.
@@ -163,7 +166,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.6
 [0.2.5]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.5
 [0.2.4]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.4
 [0.2.3]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.3
