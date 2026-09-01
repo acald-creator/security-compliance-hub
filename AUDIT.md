@@ -68,6 +68,7 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 | Repositories without dependency manifests received a passing dependency score | Fixed: OSV is skipped as `not_applicable` and excluded from the score denominator |
 | Dashboard: no pagination; Dependabot/alerts/protection/signing/OpenSSF never queried | Implemented, with per-control evidence and explicit `unknown` results for unavailable APIs |
 | Dashboard: API failures looked like control failures; signing checked only the latest commit | Fixed: `compliance-report.json` distinguishes `pass`, `fail`, `unknown`, and `not_applicable`; signing now checks repository enforcement |
+| Deploy image verification had no machine-readable result for downstream policy | Fixed: infinity workflow exposes verification status, inspected digest, and reason outputs |
 | Nested SLSA generic generator `base64-subjects` is still a commit SHA, not artifact hashes | **Resolved for caller-supplied artifacts** — GitHub Artifact Attestations now emits provenance when `artifact-path` and `attestations: write` are provided; source-only scans remain `not_requested` |
 | Gitleaks Action license on some orgs | **Open** — personal public repos OK with `GITHUB_TOKEN` |
 | Nexus evidence mapping | **In progress** — `security-summary/v1` now has a checked-in JSON Schema; consumer field mapping remains in portfolio `docs/system-workflow.md` Layer 4 |

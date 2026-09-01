@@ -36,6 +36,16 @@ on:
         required: false
         type: boolean
         default: false
+    outputs:
+      image-verification-status:
+        description: 'Published-image verification result: verified, not_found, failed, not_applicable, or not_requested'
+        value: ${{ jobs.deploy-phase.outputs.image_verification_status || 'not_requested' }}
+      image-digest:
+        description: 'Digest of the image inspected during deploy verification'
+        value: ${{ jobs.deploy-phase.outputs.image_digest || 'unknown' }}
+      image-verification-reason:
+        description: 'Human-readable image verification result'
+        value: ${{ jobs.deploy-phase.outputs.image_verification_reason || 'Deploy verification was not requested' }}
 
 jobs:
   # ♾️ PLAN - Threat Modeling & Security Requirements
@@ -199,6 +209,10 @@ jobs:
   deploy-phase:
     if: inputs.phase == 'deploy' || inputs.phase == 'all'
     runs-on: ubuntu-latest
+    outputs:
+      image_verification_status: ${{ steps.record_image_verification.outputs.status }}
+      image_digest: ${{ steps.record_image_verification.outputs.digest }}
+      image_verification_reason: ${{ steps.record_image_verification.outputs.reason }}
     env:
       REGISTRY: ${{ inputs.registry }}
       IMAGE: ${{ inputs.image != '' && inputs.image || github.repository }}
@@ -212,10 +226,13 @@ jobs:
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
       - name: Verify Image Signatures
+        id: verify_image
         run: |
           set -euo pipefail
           if [ ! -f "Dockerfile" ]; then
             echo "No Dockerfile; skipping image signature verification"
+            echo "status=not_applicable" >> "$GITHUB_OUTPUT"
+            echo "reason=No Dockerfile is present" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if ! command -v crane >/dev/null 2>&1; then
@@ -225,22 +242,56 @@ jobs:
             sudo mv /tmp/crane /usr/local/bin/crane
           fi
           IMAGE_REF="${REGISTRY}/${IMAGE}:${{ github.sha }}"
-          if ! crane digest "$IMAGE_REF" >/dev/null 2>&1; then
+          if ! IMAGE_DIGEST="$(crane digest "$IMAGE_REF" 2>/dev/null)"; then
             if [ "$REQUIRE_IMAGE_VERIFICATION" = "true" ]; then
               echo "::error::Image $IMAGE_REF is not published; strict image verification was requested."
+              echo "status=failed" >> "$GITHUB_OUTPUT"
+              echo "reason=Image $IMAGE_REF is not published and strict verification is enabled" >> "$GITHUB_OUTPUT"
               exit 1
             fi
             echo "::warning::Image $IMAGE_REF is not published; skipping verification. Set require-image-verification=true to fail."
+            echo "status=not_found" >> "$GITHUB_OUTPUT"
+            echo "reason=Image $IMAGE_REF is not published" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "digest=$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
           if [ -z "$CERTIFICATE_IDENTITY_REGEXP" ]; then
             echo "::error::certificate-identity-regexp is required when verifying a published image."
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            echo "reason=Trusted certificate identity regexp is missing" >> "$GITHUB_OUTPUT"
             exit 1
           fi
-          cosign verify \
-            --certificate-identity-regexp "$CERTIFICATE_IDENTITY_REGEXP" \
-            --certificate-oidc-issuer-regexp "$CERTIFICATE_OIDC_ISSUER_REGEXP" \
-            "$IMAGE_REF"
+          if cosign verify \
+              --certificate-identity-regexp "$CERTIFICATE_IDENTITY_REGEXP" \
+              --certificate-oidc-issuer-regexp "$CERTIFICATE_OIDC_ISSUER_REGEXP" \
+              "$IMAGE_REF"; then
+            echo "status=verified" >> "$GITHUB_OUTPUT"
+            echo "reason=Cosign verified $IMAGE_REF with the configured identity and issuer" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            echo "reason=Cosign could not verify $IMAGE_REF with the configured identity and issuer" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Record image verification result
+        id: record_image_verification
+        if: always()
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify_image.outcome }}
+          VERIFY_STATUS: ${{ steps.verify_image.outputs.status }}
+          VERIFY_DIGEST: ${{ steps.verify_image.outputs.digest }}
+          VERIFY_REASON: ${{ steps.verify_image.outputs.reason }}
+        run: |
+          set -euo pipefail
+          status="${VERIFY_STATUS:-unknown}"
+          reason="${VERIFY_REASON:-Image verification did not produce a result}"
+          if [ "$VERIFY_OUTCOME" = "skipped" ]; then
+            status="not_requested"
+            reason="Image verification step was skipped"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "digest=${VERIFY_DIGEST:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
       
       - name: Policy Validation
         run: |

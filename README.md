@@ -146,6 +146,11 @@ with one record per control. Every record has a `status` (`pass`, `fail`,
 | `certificate-oidc-issuer-regexp` | GitHub Actions issuer | Trusted Cosign OIDC issuer regexp |
 | `require-image-verification` | `false` | Fail deploy when a Docker image is expected but unavailable |
 
+The infinity workflow exposes `image-verification-status`, `image-digest`, and
+`image-verification-reason` outputs. Status is `verified`, `not_found`,
+`failed`, `not_applicable`, or `not_requested`; callers can use these outputs
+as policy inputs without scraping workflow logs.
+
 ## Versioning
 
 Consumers should pin, in order of preference:
