@@ -21,6 +21,11 @@ on:
         required: false
         type: string
         default: ''
+      image-tag:
+        description: 'Image tag to sign or verify (defaults to the current commit SHA)'
+        required: false
+        type: string
+        default: ''
       certificate-identity-regexp:
         description: 'Trusted Cosign certificate identity regexp for image verification'
         required: false
@@ -172,6 +177,7 @@ jobs:
     env:
       REGISTRY: ${{ inputs.registry }}
       IMAGE: ${{ inputs.image != '' && inputs.image || github.repository }}
+      IMAGE_TAG: ${{ inputs.image-tag != '' && inputs.image-tag || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -184,7 +190,7 @@ jobs:
             echo "No Dockerfile; skipping image signing"
             exit 0
           fi
-          IMAGE_REF="${REGISTRY}/${IMAGE}:${{ github.sha }}"
+          IMAGE_REF="${REGISTRY}/${IMAGE}:${IMAGE_TAG}"
           if ! command -v crane >/dev/null 2>&1; then
             curl -fsSL -o /tmp/crane.tar.gz \
               "https://github.com/google/go-containerregistry/releases/download/v0.20.3/go-containerregistry_Linux_x86_64.tar.gz"
@@ -216,6 +222,7 @@ jobs:
     env:
       REGISTRY: ${{ inputs.registry }}
       IMAGE: ${{ inputs.image != '' && inputs.image || github.repository }}
+      IMAGE_TAG: ${{ inputs.image-tag != '' && inputs.image-tag || github.sha }}
       CERTIFICATE_IDENTITY_REGEXP: ${{ inputs.certificate-identity-regexp }}
       CERTIFICATE_OIDC_ISSUER_REGEXP: ${{ inputs.certificate-oidc-issuer-regexp }}
       REQUIRE_IMAGE_VERIFICATION: ${{ inputs.require-image-verification }}
@@ -241,7 +248,7 @@ jobs:
             tar -xzf /tmp/crane.tar.gz -C /tmp crane
             sudo mv /tmp/crane /usr/local/bin/crane
           fi
-          IMAGE_REF="${REGISTRY}/${IMAGE}:${{ github.sha }}"
+          IMAGE_REF="${REGISTRY}/${IMAGE}:${IMAGE_TAG}"
           if ! IMAGE_DIGEST="$(crane digest "$IMAGE_REF" 2>/dev/null)"; then
             if [ "$REQUIRE_IMAGE_VERIFICATION" = "true" ]; then
               echo "::error::Image $IMAGE_REF is not published; strict image verification was requested."

@@ -91,6 +91,7 @@ jobs:
       # Required when a published image should be verified during deploy.
       # certificate-identity-regexp: '^https://github.com/OWNER/REPO/.github/workflows/.*@refs/heads/main$'
       # require-image-verification: true
+      # image-tag: v1.2.3  # defaults to github.sha
 ```
 
 ### security-scan.yml inputs
@@ -142,6 +143,7 @@ with one record per control. Every record has a `status` (`pass`, `fail`,
 | `phase` | (required) | `plan`, `code`, `build`, `test`, `release`, `deploy`, `operate`, `monitor`, or `all` |
 | `registry` | `ghcr.io` | Container registry hostname used by release/deploy Cosign steps |
 | `image` | `${{ github.repository }}` | Image path within the registry |
+| `image-tag` | `${{ github.sha }}` | Image tag to sign or verify |
 | `certificate-identity-regexp` | empty | Required to verify a published image; trusted Cosign certificate identity regexp |
 | `certificate-oidc-issuer-regexp` | GitHub Actions issuer | Trusted Cosign OIDC issuer regexp |
 | `require-image-verification` | `false` | Fail deploy when a Docker image is expected but unavailable |
