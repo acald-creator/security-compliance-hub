@@ -74,6 +74,9 @@ on:
       attestation-url:
         description: 'URL of the generated artifact attestation summary'
         value: ${{ jobs.aggregate-results.outputs.attestation_url }}
+      dependency-scan-status:
+        description: 'Dependency scanner applicability and result'
+        value: ${{ jobs.aggregate-results.outputs.dependency_status }}
 
 jobs:
   # 🔍 Secret Scanning
@@ -227,15 +230,61 @@ jobs:
   dependency-scan:
     name: Dependency Security
     runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.record_dependency_status.outputs.status }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Detect dependency manifests
+        id: dependency_manifests
+        run: |
+          set -euo pipefail
+          manifests=$(find . -type f \( \
+            -name 'package.json' -o -name 'package-lock.json' -o -name 'bun.lock' -o -name 'bun.lockb' -o \
+            -name 'yarn.lock' -o -name 'pnpm-lock.yaml' -o -name 'go.mod' -o -name 'Cargo.toml' -o \
+            -name 'Gemfile' -o -name 'requirements*.txt' -o -name 'pyproject.toml' -o -name 'poetry.lock' -o \
+            -name 'Pipfile.lock' -o -name 'pom.xml' -o -name 'build.gradle' -o -name 'build.gradle.kts' -o \
+            -name 'gradle.lockfile' -o -name 'composer.lock' -o -name 'mix.lock' \
+          \) -not -path './.git/*' -print)
+          if [ -n "$manifests" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Dependency manifests found:"
+            printf '%s\n' "$manifests"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No dependency manifests found; OSV scanning is not applicable."
+          fi
+
       - name: OSV Scanner
+        id: osv_scanner
+        if: steps.dependency_manifests.outputs.found == 'true'
         uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
         with:
           scan-args: |-
             --recursive
             ./
+
+      - name: Record dependency scan status
+        id: record_dependency_status
+        if: always()
+        env:
+          MANIFESTS_FOUND: ${{ steps.dependency_manifests.outputs.found }}
+          OSV_OUTCOME: ${{ steps.osv_scanner.outcome }}
+        run: |
+          set -euo pipefail
+          if [ "$MANIFESTS_FOUND" = "false" ]; then
+            status="not_applicable"
+          elif [ "$MANIFESTS_FOUND" != "true" ]; then
+            status="unknown"
+          elif [ "$OSV_OUTCOME" = "success" ]; then
+            status="passed"
+          elif [ "$OSV_OUTCOME" = "failure" ]; then
+            status="failed"
+          else
+            status="unknown"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "Dependency scan status: $status"
 
   # 🐳 Container Scanning
   #
@@ -552,6 +601,7 @@ jobs:
       sbom_digest: ${{ steps.calculate.outputs.sbom_digest }}
       artifact_digest: ${{ steps.calculate.outputs.artifact_digest }}
       attestation_url: ${{ steps.calculate.outputs.attestation_url }}
+      dependency_status: ${{ steps.calculate.outputs.dependency_status }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -577,6 +627,7 @@ jobs:
           ARTIFACT_DIGEST: ${{ needs.supply-chain.outputs.artifact_digest }}
           ATTESTATION_ID: ${{ needs.supply-chain.outputs.attestation_id }}
           ATTESTATION_URL: ${{ needs.supply-chain.outputs.attestation_url }}
+          DEPS_EVIDENCE: ${{ needs.dependency-scan.outputs.status }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
@@ -589,8 +640,8 @@ jobs:
           if [ "$SAST" = "success" ]; then SCORE=$((SCORE + 25)); fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
 
-          if [ "$DEPS" = "success" ]; then SCORE=$((SCORE + 25)); fi
-          TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
+          if [ "$DEPS_EVIDENCE" = "passed" ]; then SCORE=$((SCORE + 25)); fi
+          if [ "$DEPS_EVIDENCE" != "not_applicable" ]; then TOTAL_CHECKS=$((TOTAL_CHECKS + 25)); fi
 
           if [ "$CONTAINER" = "skipped" ] || [ "$CONTAINER" = "success" ]; then SCORE=$((SCORE + 15)); fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
@@ -625,6 +676,7 @@ jobs:
           echo "score=$FINAL_SCORE" >> "$GITHUB_OUTPUT"
           echo "provenance=$SLSA_STATUS" >> "$GITHUB_OUTPUT"
           echo "owasp_dependency_check=$OWASP_EVIDENCE_STATUS" >> "$GITHUB_OUTPUT"
+          echo "dependency_status=${DEPS_EVIDENCE:-unknown}" >> "$GITHUB_OUTPUT"
 
           FAILED=""
           for pair in "secret:$SECRET" "sast:$SAST" "dependency:$DEPS" "container:$CONTAINER" "openssf:$OPENSFF" "owasp:$OWASP" "supply_chain:$SUPPLY"; do
@@ -650,6 +702,7 @@ jobs:
               "sbom_signing": "$SUPPLY",
               "slsa_provenance": "$SLSA_STATUS",
               "owasp_dependency_check": "$OWASP_EVIDENCE_STATUS",
+              "dependency_scan": "${DEPS_EVIDENCE:-unknown}",
               "artifact_digest": "$ARTIFACT_DIGEST",
               "sbom_digest": "$SBOM_DIGEST",
               "sbom_signature_digest": "$SBOM_SIGNATURE_DIGEST",
@@ -699,6 +752,7 @@ jobs:
             - Secret Scanning: ${{ needs.secret-scan.result }}
             - SAST Analysis: ${{ needs.sast-scan.result }}
             - Dependency Scan: ${{ needs.dependency-scan.result }}
+            - Dependency evidence: ${{ needs.dependency-scan.outputs.status || 'unknown' }}
             - Container Security: ${{ needs.container-scan.result }}
 
             Machine-readable summary: artifact \`security-summary\` (\`security-summary.json\`).
