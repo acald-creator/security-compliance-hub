@@ -175,6 +175,7 @@ A future `@v1` would be a new major line, not the current pin.
 | `scripts/setup-repo-security.sh [path]` | Stamp a target repository with workflows, templates, hooks, and Dependabot |
 | `scripts/install-commit-tools.sh` | Install Cocogitto |
 | `scripts/compliance-dashboard.ts` | HTML/JSON audit of GitHub repos for the authenticated user |
+| `scripts/lib/compliance.ts` | Pure compliance scoring and evidence-status rules used by the dashboard |
 
 ```bash
 export GITHUB_TOKEN="ghp_..."
@@ -197,7 +198,10 @@ security-compliance-hub/
 │   ├── setup-tools.sh
 │   ├── setup-repo-security.sh
 │   ├── install-commit-tools.sh
-│   └── compliance-dashboard.ts
+│   ├── compliance-dashboard.ts
+│   └── lib/
+│       ├── compliance.ts
+│       └── compliance.test.ts
 ├── templates/                      # SECURITY.md, insights, threat model
 ├── examples/target-repo-template/  # Copyable consumer files
 ├── hooks/lefthook.yml

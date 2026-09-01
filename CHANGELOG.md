@@ -21,6 +21,7 @@ consumers should pin references to these workflows.
 - Make repository stamping fetch the exact `v0.2.5` release by default, with `SECURITY_HUB_REF` override support.
 - Add per-control evidence to the dashboard JSON and distinguish unavailable API checks as `unknown` instead of non-compliant.
 - Check signed-commit enforcement through required-signature protection and active branch rulesets rather than the latest commit alone.
+- Extract dashboard scoring into a pure module with unit coverage for unknown and not-applicable evidence.
 
 ## [0.2.5] - 2026-08-22
 

@@ -40,7 +40,7 @@ Centralized DevSecOps toolkit: reusable GitHub Actions, setup scripts, and templ
 16. ZAP against localhost — removed from reusable workflow (caller must boot the app).
 17. Example templates populated from `templates/`.
 18. Hub `SECURITY.md` added.
-19. Tests — **open until 0.2** (`scripts/lib/html.test.ts` started).
+19. Tests — dashboard scoring/evidence and HTML escaping are covered by Bun unit tests; workflow integration fixtures remain a future item.
 20. `setup-tools.sh` PATH append — grep rc files.
 21. `@types/bun` pinned to `^1.3.1`.
 22. Commit-msg enforcement still optional (documented).

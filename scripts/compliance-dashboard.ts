@@ -1,44 +1,19 @@
 import { createWriteStream } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { Octokit } from "@octokit/rest";
+import {
+	assessCompliance,
+	type BooleanCheckName,
+	type CheckEvidence,
+	type ComplianceChecks,
+	type ComplianceEvidence,
+	type ComplianceStatus,
+} from "./lib/compliance.ts";
 import { escapeHtml } from "./lib/html.ts";
 
 type RepoListItem = Awaited<
 	ReturnType<Octokit["repos"]["listForAuthenticatedUser"]>
 >["data"][number];
-
-interface ComplianceChecks {
-	has_security_md: boolean;
-	has_security_workflow: boolean;
-	has_dependabot: boolean;
-	has_codeql: boolean;
-	vulnerability_alerts_enabled: boolean;
-	has_branch_protection: boolean;
-	signed_commits: boolean;
-	openssf_score: number;
-}
-
-type ComplianceCheckName =
-	| "has_security_md"
-	| "has_security_workflow"
-	| "has_dependabot"
-	| "has_codeql"
-	| "vulnerability_alerts_enabled"
-	| "has_branch_protection"
-	| "signed_commits"
-	| "openssf_score";
-
-type BooleanCheckName = Exclude<ComplianceCheckName, "openssf_score">;
-type CheckStatus = "pass" | "fail" | "unknown" | "not_applicable";
-
-interface CheckEvidence {
-	status: CheckStatus;
-	reason: string;
-}
-
-type ComplianceEvidence = Record<ComplianceCheckName, CheckEvidence>;
-
-type ComplianceStatus = "compliant" | "partial" | "non_compliant" | "unknown";
 
 interface ComplianceResult {
 	score: number;
@@ -476,42 +451,8 @@ async function checkRepoCompliance(
 		);
 	}
 
-	const booleanChecks: BooleanCheckName[] = [
-		"has_security_md",
-		"has_security_workflow",
-		"has_dependabot",
-		"has_codeql",
-		"vulnerability_alerts_enabled",
-		"has_branch_protection",
-		"signed_commits",
-	];
-	const evaluatedChecks = booleanChecks.filter(
-		(key) =>
-			evidence[key].status !== "unknown" &&
-			evidence[key].status !== "not_applicable",
-	);
-	const passed = evaluatedChecks.filter((key) => checks[key] === true).length;
-	let score =
-		evaluatedChecks.length === 0 ? 0 : (passed / evaluatedChecks.length) * 100;
-	if (checks.openssf_score > 0 && evidence.openssf_score.status === "pass") {
-		score = (score + checks.openssf_score * 10) / 2;
-	}
-
-	const hasUnknown = Object.values(evidence).some(
-		(check) => check.status === "unknown",
-	);
-	const status: ComplianceStatus =
-		evaluatedChecks.length === 0 && hasUnknown
-			? "unknown"
-			: hasUnknown
-				? "partial"
-				: score >= 80
-					? "compliant"
-					: score >= 50
-						? "partial"
-						: "non_compliant";
-
-	return { score, checks, evidence, status };
+	const assessment = assessCompliance(checks, evidence);
+	return { ...assessment, checks, evidence };
 }
 
 function generateHTMLReport(report: ComplianceReport): string {
