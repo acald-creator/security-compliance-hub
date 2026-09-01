@@ -117,7 +117,7 @@ jobs:
               export PATH="$HOME/.bun/bin:$PATH"
             fi
             bun install --frozen-lockfile || bun install
-            bun audit || true
+            bun audit
           elif [ -f "go.mod" ]; then
             if command -v govulncheck >/dev/null 2>&1; then
               govulncheck ./...

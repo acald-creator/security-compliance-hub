@@ -67,6 +67,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+
+      - name: Validate severity policy
+        env:
+          THRESHOLD: ${{ inputs.severity-threshold }}
+        run: |
+          set -euo pipefail
+          case "${THRESHOLD^^}" in
+            CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN) ;;
+            *)
+              echo "::error::Unsupported severity-threshold: $THRESHOLD"
+              echo "Supported values: CRITICAL, HIGH, MEDIUM, LOW, UNKNOWN"
+              exit 1
+              ;;
+          esac
       
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
@@ -126,7 +140,9 @@ jobs:
       # GitHub rejects advanced CodeQL SARIF while default setup is enabled
       # ("CodeQL analyses from advanced configurations cannot be processed
       # when the default setup is enabled"). Skip our CodeQL in that case;
-      # default setup already covers the repo. Semgrep still runs.
+      # default setup already covers the repo. Semgrep still runs. If the
+      # default-setup API cannot be read, advanced CodeQL is attempted and a
+      # real CodeQL failure must fail this job.
       - name: Check CodeQL default setup
         id: default_setup
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -143,23 +159,18 @@ jobs:
                 core.info('CodeQL default setup is enabled; skipping advanced CodeQL. Semgrep still runs.');
               }
             } catch (err) {
-              // GITHUB_TOKEN cannot read default-setup (typically 403). Still
-              // try advanced CodeQL; analyze uses continue-on-error so a
-              // default-setup SARIF conflict does not fail the job.
-              core.info(`Could not read CodeQL default setup (${err.status || err.message}); attempting advanced CodeQL.`);
+              core.info(`Could not read CodeQL default setup (${err.status || err.message}); attempting advanced CodeQL. A CodeQL failure will fail SAST.`);
               core.setOutput('enabled', 'false');
             }
 
       - name: Initialize CodeQL
         if: steps.langs.outputs.has == 'true' && steps.default_setup.outputs.enabled != 'true'
-        continue-on-error: true
         uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           languages: ${{ steps.langs.outputs.list }}
 
       - name: Perform CodeQL Analysis
         if: steps.langs.outputs.has == 'true' && steps.default_setup.outputs.enabled != 'true'
-        continue-on-error: true
         uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
 
       - name: Set up Python for Semgrep
@@ -170,14 +181,23 @@ jobs:
 
       - name: Install and run Semgrep
         if: always()
+        env:
+          THRESHOLD: ${{ inputs.severity-threshold }}
         run: |
+          set -euo pipefail
           pip install --quiet semgrep
           SEMGREP_ARGS=(--sarif --output=semgrep.sarif)
           SEMGREP_ARGS+=(--config=p/security-audit --config=p/owasp-top-ten --config=p/r2c-security-audit)
           if [ -d "./policies/semgrep" ]; then
             SEMGREP_ARGS+=(--config=./policies/semgrep/)
           fi
-          semgrep "${SEMGREP_ARGS[@]}" || true
+          case "${THRESHOLD^^}" in
+            CRITICAL|HIGH) SEMGREP_ARGS+=(--severity=ERROR) ;;
+            MEDIUM) SEMGREP_ARGS+=(--severity=WARNING) ;;
+            LOW|UNKNOWN) SEMGREP_ARGS+=(--severity=INFO) ;;
+            *) echo "::error::Unsupported severity-threshold: $THRESHOLD"; exit 1 ;;
+          esac
+          semgrep "${SEMGREP_ARGS[@]}" --error
 
       - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
@@ -223,13 +243,33 @@ jobs:
 
       - name: Run Trivy
         if: steps.detect.outputs.found == 'true'
+        id: trivy
+        env:
+          THRESHOLD: ${{ inputs.severity-threshold }}
+        run: |
+          set -euo pipefail
+          case "${THRESHOLD^^}" in
+            CRITICAL) echo "severity=CRITICAL" >> "$GITHUB_OUTPUT" ;;
+            HIGH) echo "severity=CRITICAL,HIGH" >> "$GITHUB_OUTPUT" ;;
+            MEDIUM) echo "severity=CRITICAL,HIGH,MEDIUM" >> "$GITHUB_OUTPUT" ;;
+            LOW) echo "severity=CRITICAL,HIGH,MEDIUM,LOW" >> "$GITHUB_OUTPUT" ;;
+            UNKNOWN) echo "severity=UNKNOWN,CRITICAL,HIGH,MEDIUM,LOW" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::Unsupported severity-threshold: $THRESHOLD"
+              exit 1
+              ;;
+          esac
+
+      - name: Scan filesystem with Trivy
+        if: steps.detect.outputs.found == 'true'
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM'
+          severity: ${{ steps.trivy.outputs.severity }}
+          exit-code: '1'
 
       - name: Run Hadolint
         if: steps.detect.outputs.found == 'true' && hashFiles('Dockerfile') != ''

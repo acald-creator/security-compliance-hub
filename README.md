@@ -97,13 +97,16 @@ jobs:
 | Input | Default | Description |
 |---|---|---|
 | `repository` | current repo | Repository to scan |
-| `severity-threshold` | `HIGH` | Minimum severity that fails the build |
+| `severity-threshold` | `HIGH` | Minimum severity that fails supported Semgrep and Trivy gates (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, or `UNKNOWN`) |
 | `compliance-frameworks` | `openssf,owasp,slsa` | Comma-separated list of frameworks to check |
 | `enable-signing` | `true` | Enable Sigstore SBOM signing |
 | `artifact-path` | empty | Optional built artifact path for SLSA provenance attestation; requires `attestations: write` |
 | `artifact-name` | empty | Optional artifact uploaded by an earlier caller job; downloaded before using `artifact-path` |
 
 Optional secrets: `NVD_API_KEY` (OWASP Dependency-Check NVD feed), `SNYK_TOKEN`, `SONAR_TOKEN`. Without `NVD_API_KEY`, that CVE feed is skipped; OSV Scanner still runs.
+
+Semgrep and Trivy honor `severity-threshold`. OSV Scanner keeps its native exit
+policy, and OWASP Dependency-Check requires `NVD_API_KEY` when enabled.
 
 Outputs: `security-score`, `compliance-status`, and `vulnerabilities` (comma-separated failed job names, or `none`). The `security-summary` artifact is `security-summary.json`.
 
