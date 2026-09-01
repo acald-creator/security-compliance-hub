@@ -12,7 +12,7 @@ Current release: **[v0.2.5](https://github.com/acald-creator/security-compliance
 - **Reusable DevSecOps infinity loop** (`devsecops-infinity.yml`) — plan / code / build / test / release / deploy / operate / monitor, with security gates per phase.
 - **Stamp script** — `scripts/setup-repo-security.sh <path>` writes `security.yml`, Dependabot (ecosystems the target actually uses), Lefthook, `SECURITY.md`, and related templates. Always overwrites `security.yml` and `dependabot.yml`. Other files are skipped unless `FORCE_OVERWRITE=1`.
 - **Local tool installer** — Lefthook, Trivy, Gitleaks, and Semgrep on Linux or macOS.
-- **HTML audit** — `bun run audit:all` walks GitHub repos via Octokit and writes `compliance-report.html` / `compliance-report.json`. That is not the Next.js inventory console (`acald-creator/dev-portfolio-dashboard`).
+- **HTML audit** — `bun run audit:all` walks GitHub repos via Octokit and writes `compliance-report.html` / `compliance-report.json`, including per-control evidence. That is not the Next.js inventory console (`acald-creator/dev-portfolio-dashboard`).
 - **Attestation fixture** — `.github/workflows/attestation-fixture.yml` manually exercises build artifact upload, SBOM signing, and SLSA provenance attestation.
 
 The hub dogfoods via `.github/workflows/self-scan.yml`, not a root `security.yml`.
@@ -122,6 +122,17 @@ Known limits of this suite:
 - When `phase: all` reaches deploy for a published image, `certificate-identity-regexp` must be configured; otherwise verification fails closed. Set `require-image-verification: true` to also fail when the expected image has not been published.
 - Dependency scanning reports `not_applicable` when no supported dependency manifest exists, rather than awarding a passing dependency score without evidence.
 - If GitHub default CodeQL setup is enabled on the caller, advanced CodeQL is skipped; Semgrep still runs.
+
+### HTML audit evidence
+
+Each repository entry in `compliance-report.json` includes an `evidence` object
+with one record per control. Every record has a `status` (`pass`, `fail`,
+`unknown`, or `not_applicable`) and a human-readable `reason`.
+
+- `fail` means the API successfully established that the control is missing or disabled.
+- `unknown` means the audit could not establish the control state, usually because GitHub permissions or an external API prevented the check. Unknown controls are excluded from the score denominator and make the repository `partial` (or `unknown` when nothing could be evaluated).
+- `signed_commits` measures repository enforcement through required-signature protection or an active branch ruleset; it does not infer policy from the latest commit's verification flag.
+- The existing `checks` booleans remain in the JSON for compatibility, but consumers that need an auditable result should use `evidence`.
 
 ### devsecops-infinity.yml inputs
 
