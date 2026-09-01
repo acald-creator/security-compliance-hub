@@ -148,6 +148,7 @@ jobs:
       enable-signing: true
       # Add artifact-path and attestations: write when the target builds a
       # file that should receive SLSA provenance.
+      # artifact-name: build-artifact
       # artifact-path: dist/example
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -158,6 +159,9 @@ jobs:
     uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@__SECURITY_HUB_REF__
     with:
       phase: all
+      # Required when a published image should be verified during deploy.
+      # certificate-identity-regexp: '^https://github.com/OWNER/REPO/.github/workflows/.*@refs/heads/main$'
+      # require-image-verification: true
 EOF
 
   replace_workflow_ref "$TEMPLATE_DIR/.github/workflows/security.yml"
@@ -214,6 +218,7 @@ jobs:
       enable-signing: true
       # Add artifact-path and attestations: write when the target builds a
       # file that should receive SLSA provenance.
+      # artifact-name: build-artifact
       # artifact-path: dist/example
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -224,6 +229,9 @@ jobs:
     uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@__SECURITY_HUB_REF__
     with:
       phase: all
+      # Required when a published image should be verified during deploy.
+      # certificate-identity-regexp: '^https://github.com/OWNER/REPO/.github/workflows/.*@refs/heads/main$'
+      # require-image-verification: true
 EOF
   replace_workflow_ref "$REPO_PATH/.github/workflows/security.yml"
 fi

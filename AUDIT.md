@@ -62,6 +62,7 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 | Scorecard `publish_results` on private repos | Fixed: public only |
 | Remaining Actions still on moving tags | SHA-pinned in reusable workflows |
 | Infinity: no Bun, OPA always, Cosign always | Skip/install guards |
+| Deploy Cosign verification accepted any certificate identity and issuer | Fixed: published images require a trusted identity; issuer defaults to GitHub Actions |
 | Dashboard: no pagination; Dependabot/alerts/protection/signing/OpenSSF never queried | Implemented |
 | Nested SLSA generic generator `base64-subjects` is still a commit SHA, not artifact hashes | **Resolved for caller-supplied artifacts** — GitHub Artifact Attestations now emits provenance when `artifact-path` and `attestations: write` are provided; source-only scans remain `not_requested` |
 | Gitleaks Action license on some orgs | **Open** — personal public repos OK with `GITHUB_TOKEN` |
@@ -74,5 +75,5 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 
 1. Tag `v0.2.0` only after CI (and a `workflow_dispatch` self-scan) is green.
 2. Stamp onto 5–10 public originals, not every fork.
-3. Add fixture-repository integration tests for artifact-path attestation and strict verification.
+3. Run the manual attestation fixture and add a published-image fixture for strict Cosign verification.
 4. Then expand Underground Nexus as a host-level consumer of `security-summary/v1`.

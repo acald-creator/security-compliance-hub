@@ -10,6 +10,9 @@ consumers should pin references to these workflows.
 ## [Unreleased]
 
 - Add optional GitHub Artifact Attestations for caller-supplied build artifacts.
+- Support downloading caller-uploaded build artifacts before provenance attestation.
+- Require a trusted Cosign certificate identity when verifying published images.
+- Add a manual artifact-attestation integration fixture workflow.
 - Separate SBOM signing status from SLSA provenance status in `security-summary/v1`.
 - Make repository stamping fetch the exact `v0.2.5` release by default, with `SECURITY_HUB_REF` override support.
 

@@ -1,0 +1,46 @@
+name: Attestation Fixture
+
+# Manual integration fixture for the build-artifact -> attestation path.
+# This is intentionally not part of the normal push/PR CI fan-out.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build fixture artifact
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build deterministic fixture
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          printf 'security-compliance-hub attestation fixture\n' > dist/fixture-artifact.txt
+
+      - name: Upload fixture artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: attestation-fixture
+          path: dist/fixture-artifact.txt
+
+  attest:
+    name: Attest fixture artifact
+    needs: build
+    uses: ./.github/workflows/security-scan.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      security-events: write
+      pull-requests: write
+    with:
+      compliance-frameworks: openssf
+      enable-signing: true
+      artifact-name: attestation-fixture
+      artifact-path: fixture-artifact.txt

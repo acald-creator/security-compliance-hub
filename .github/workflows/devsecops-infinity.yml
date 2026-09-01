@@ -21,6 +21,21 @@ on:
         required: false
         type: string
         default: ''
+      certificate-identity-regexp:
+        description: 'Trusted Cosign certificate identity regexp for image verification'
+        required: false
+        type: string
+        default: ''
+      certificate-oidc-issuer-regexp:
+        description: 'Trusted Cosign OIDC issuer regexp for image verification'
+        required: false
+        type: string
+        default: '^https://token.actions.githubusercontent.com$'
+      require-image-verification:
+        description: 'Fail deploy when a Docker image is expected but not published'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   # ♾️ PLAN - Threat Modeling & Security Requirements
@@ -187,6 +202,9 @@ jobs:
     env:
       REGISTRY: ${{ inputs.registry }}
       IMAGE: ${{ inputs.image != '' && inputs.image || github.repository }}
+      CERTIFICATE_IDENTITY_REGEXP: ${{ inputs.certificate-identity-regexp }}
+      CERTIFICATE_OIDC_ISSUER_REGEXP: ${{ inputs.certificate-oidc-issuer-regexp }}
+      REQUIRE_IMAGE_VERIFICATION: ${{ inputs.require-image-verification }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -195,17 +213,34 @@ jobs:
 
       - name: Verify Image Signatures
         run: |
+          set -euo pipefail
           if [ ! -f "Dockerfile" ]; then
             echo "No Dockerfile; skipping image signature verification"
             exit 0
           fi
+          if ! command -v crane >/dev/null 2>&1; then
+            curl -fsSL -o /tmp/crane.tar.gz \
+              "https://github.com/google/go-containerregistry/releases/download/v0.20.3/go-containerregistry_Linux_x86_64.tar.gz"
+            tar -xzf /tmp/crane.tar.gz -C /tmp crane
+            sudo mv /tmp/crane /usr/local/bin/crane
+          fi
+          IMAGE_REF="${REGISTRY}/${IMAGE}:${{ github.sha }}"
+          if ! crane digest "$IMAGE_REF" >/dev/null 2>&1; then
+            if [ "$REQUIRE_IMAGE_VERIFICATION" = "true" ]; then
+              echo "::error::Image $IMAGE_REF is not published; strict image verification was requested."
+              exit 1
+            fi
+            echo "::warning::Image $IMAGE_REF is not published; skipping verification. Set require-image-verification=true to fail."
+            exit 0
+          fi
+          if [ -z "$CERTIFICATE_IDENTITY_REGEXP" ]; then
+            echo "::error::certificate-identity-regexp is required when verifying a published image."
+            exit 1
+          fi
           cosign verify \
-            --certificate-identity-regexp ".*" \
-            --certificate-oidc-issuer-regexp ".*" \
-            "${REGISTRY}/${IMAGE}:${{ github.sha }}" || {
-              echo "Verification failed or image not published yet"
-              exit 0
-            }
+            --certificate-identity-regexp "$CERTIFICATE_IDENTITY_REGEXP" \
+            --certificate-oidc-issuer-regexp "$CERTIFICATE_OIDC_ISSUER_REGEXP" \
+            "$IMAGE_REF"
       
       - name: Policy Validation
         run: |

@@ -13,6 +13,7 @@ Current release: **[v0.2.5](https://github.com/acald-creator/security-compliance
 - **Stamp script** — `scripts/setup-repo-security.sh <path>` writes `security.yml`, Dependabot (ecosystems the target actually uses), Lefthook, `SECURITY.md`, and related templates. Always overwrites `security.yml` and `dependabot.yml`. Other files are skipped unless `FORCE_OVERWRITE=1`.
 - **Local tool installer** — Lefthook, Trivy, Gitleaks, and Semgrep on Linux or macOS.
 - **HTML audit** — `bun run audit:all` walks GitHub repos via Octokit and writes `compliance-report.html` / `compliance-report.json`. That is not the Next.js inventory console (`acald-creator/dev-portfolio-dashboard`).
+- **Attestation fixture** — `.github/workflows/attestation-fixture.yml` manually exercises build artifact upload, SBOM signing, and SLSA provenance attestation.
 
 The hub dogfoods via `.github/workflows/self-scan.yml`, not a root `security.yml`.
 
@@ -75,6 +76,7 @@ jobs:
       compliance-frameworks: openssf,owasp,slsa
       enable-signing: true
       # Optional: attest a built artifact with GitHub's SLSA provenance.
+      # artifact-name: build-artifact
       # artifact-path: dist/example
     secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -85,6 +87,9 @@ jobs:
     uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0.2.5
     with:
       phase: all
+      # Required when a published image should be verified during deploy.
+      # certificate-identity-regexp: '^https://github.com/OWNER/REPO/.github/workflows/.*@refs/heads/main$'
+      # require-image-verification: true
 ```
 
 ### security-scan.yml inputs
@@ -96,6 +101,7 @@ jobs:
 | `compliance-frameworks` | `openssf,owasp,slsa` | Comma-separated list of frameworks to check |
 | `enable-signing` | `true` | Enable Sigstore SBOM signing |
 | `artifact-path` | empty | Optional built artifact path for SLSA provenance attestation; requires `attestations: write` |
+| `artifact-name` | empty | Optional artifact uploaded by an earlier caller job; downloaded before using `artifact-path` |
 
 Optional secrets: `NVD_API_KEY` (OWASP Dependency-Check NVD feed), `SNYK_TOKEN`, `SONAR_TOKEN`. Without `NVD_API_KEY`, that CVE feed is skipped; OSV Scanner still runs.
 
@@ -106,6 +112,8 @@ Known limits of this suite:
 - Scorecard uploads SARIF to the GitHub Security tab with `publish_results: false` (OpenSSF rejects publishing from a workflow that also grants `id-token` to Cosign). Do not request `actions: read` on the Scorecard job.
 - SBOM signing and SLSA provenance are separate controls. SBOM signing runs when enabled; SLSA provenance is `not_requested` unless the caller supplies `artifact-path` and grants `attestations: write`.
 - The reusable workflow uses GitHub Artifact Attestations for caller-supplied artifacts. It does not infer an artifact from a source checkout.
+- For build outputs, the caller should upload an artifact in a job that the security job `needs`, then pass both `artifact-name` and the path inside the downloaded artifact.
+- When `phase: all` reaches deploy for a published image, `certificate-identity-regexp` must be configured; otherwise verification fails closed. Set `require-image-verification: true` to also fail when the expected image has not been published.
 - If GitHub default CodeQL setup is enabled on the caller, advanced CodeQL is skipped; Semgrep still runs.
 
 ### devsecops-infinity.yml inputs
@@ -115,6 +123,9 @@ Known limits of this suite:
 | `phase` | (required) | `plan`, `code`, `build`, `test`, `release`, `deploy`, `operate`, `monitor`, or `all` |
 | `registry` | `ghcr.io` | Container registry hostname used by release/deploy Cosign steps |
 | `image` | `${{ github.repository }}` | Image path within the registry |
+| `certificate-identity-regexp` | empty | Required to verify a published image; trusted Cosign certificate identity regexp |
+| `certificate-oidc-issuer-regexp` | GitHub Actions issuer | Trusted Cosign OIDC issuer regexp |
+| `require-image-verification` | `false` | Fail deploy when a Docker image is expected but unavailable |
 
 ## Versioning
 
@@ -160,6 +171,7 @@ security-compliance-hub/
 ├── .github/workflows/
 │   ├── security-scan.yml           # Reusable security suite
 │   ├── devsecops-infinity.yml      # Reusable lifecycle workflow
+│   ├── attestation-fixture.yml     # Manual artifact attestation integration test
 │   ├── self-scan.yml               # Hub dogfood
 │   ├── ci.yml
 │   └── release.yml                 # Semver tag → moving @v0
