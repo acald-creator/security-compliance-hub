@@ -103,12 +103,12 @@ jobs:
           esac
       
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Run TruffleHog
-        uses: trufflesecurity/trufflehog@47e7b7cd74f578e1e3145d48f669f22fd1330ca6 # v3.94.3
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
         with:
           path: ./
           extra_args: --results=verified,unknown
@@ -328,7 +328,7 @@ jobs:
 
       - name: Scan filesystem with Trivy
         if: steps.detect.outputs.found == 'true'
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -339,7 +339,7 @@ jobs:
 
       - name: Run Hadolint
         if: steps.detect.outputs.found == 'true' && hashFiles('Dockerfile') != ''
-        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
         with:
           dockerfile: Dockerfile
           failure-threshold: warning
