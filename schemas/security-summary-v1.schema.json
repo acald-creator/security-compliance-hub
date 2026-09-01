@@ -37,7 +37,7 @@
 			"additionalProperties": false,
 			"required": ["openssf", "owasp", "slsa"],
 			"properties": {
-				"openssf": { "$ref": "#/$defs/jobResult" },
+				"openssf": { "$ref": "#/$defs/frameworkStatus" },
 				"owasp": { "$ref": "#/$defs/evidenceStatus" },
 				"slsa": { "$ref": "#/$defs/provenanceStatus" }
 			}
@@ -110,6 +110,17 @@
 		"evidenceStatus": {
 			"type": "string",
 			"enum": ["passed", "failed", "unknown", "not_requested"]
+		},
+		"frameworkStatus": {
+			"type": "string",
+			"enum": [
+				"success",
+				"failure",
+				"cancelled",
+				"skipped",
+				"unknown",
+				"not_requested"
+			]
 		},
 		"provenanceStatus": {
 			"type": "string",

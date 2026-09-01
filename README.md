@@ -122,6 +122,7 @@ Known limits of this suite:
 - When `phase: all` reaches deploy for a published image, `certificate-identity-regexp` must be configured; otherwise verification fails closed. Set `require-image-verification: true` to also fail when the expected image has not been published.
 - Dependency scanning reports `not_applicable` when no supported dependency manifest exists, rather than awarding a passing dependency score without evidence.
 - If GitHub default CodeQL setup is enabled on the caller, advanced CodeQL is skipped; Semgrep still runs.
+- When `openssf` is omitted from `compliance-frameworks`, OpenSSF is reported as `not_requested` and excluded from the score denominator.
 
 ### HTML audit evidence
 

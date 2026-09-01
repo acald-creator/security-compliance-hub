@@ -23,6 +23,7 @@ consumers should pin references to these workflows.
 - Check signed-commit enforcement through required-signature protection and active branch rulesets rather than the latest commit alone.
 - Extract dashboard scoring into a pure module with unit coverage for unknown and not-applicable evidence.
 - Publish a JSON Schema for the `security-summary/v1` artifact contract.
+- Exclude unrequested OpenSSF checks from the reusable workflow score and report them as `not_requested`.
 
 ## [0.2.5] - 2026-08-22
 
