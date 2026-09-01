@@ -70,7 +70,7 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 | Dashboard: API failures looked like control failures; signing checked only the latest commit | Fixed: `compliance-report.json` distinguishes `pass`, `fail`, `unknown`, and `not_applicable`; signing now checks repository enforcement |
 | Nested SLSA generic generator `base64-subjects` is still a commit SHA, not artifact hashes | **Resolved for caller-supplied artifacts** — GitHub Artifact Attestations now emits provenance when `artifact-path` and `attestations: write` are provided; source-only scans remain `not_requested` |
 | Gitleaks Action license on some orgs | **Open** — personal public repos OK with `GITHUB_TOKEN` |
-| Nexus evidence mapping | **Open** — see portfolio `docs/system-workflow.md` Layer 4 |
+| Nexus evidence mapping | **In progress** — `security-summary/v1` now has a checked-in JSON Schema; consumer field mapping remains in portfolio `docs/system-workflow.md` Layer 4 |
 | Self-scan dogfood: TruffleHog BASE==HEAD, OSV missing `runs:`, OWASP NVD key, Scorecard publish | Fixed in `v0.2.1` |
 
 ---

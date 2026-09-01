@@ -1,0 +1,133 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://github.com/acald-creator/security-compliance-hub/blob/main/schemas/security-summary-v1.schema.json",
+	"title": "Security Compliance Hub security-summary/v1",
+	"description": "Machine-readable result emitted by security-scan.yml.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": [
+		"schema",
+		"repository",
+		"sha",
+		"score",
+		"compliance",
+		"evidence",
+		"jobs",
+		"failed"
+	],
+	"properties": {
+		"schema": {
+			"const": "acald-creator/security-compliance-hub/security-summary/v1"
+		},
+		"repository": {
+			"type": "string",
+			"pattern": "^[^/\\s]+/[^/\\s]+$"
+		},
+		"sha": {
+			"type": "string",
+			"pattern": "^[0-9a-fA-F]{40}$"
+		},
+		"score": {
+			"type": "integer",
+			"minimum": 0,
+			"maximum": 100
+		},
+		"compliance": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["openssf", "owasp", "slsa"],
+			"properties": {
+				"openssf": { "$ref": "#/$defs/jobResult" },
+				"owasp": { "$ref": "#/$defs/evidenceStatus" },
+				"slsa": { "$ref": "#/$defs/provenanceStatus" }
+			}
+		},
+		"evidence": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"sbom_signing",
+				"slsa_provenance",
+				"owasp_dependency_check",
+				"dependency_scan",
+				"artifact_digest",
+				"sbom_digest",
+				"sbom_signature_digest",
+				"sbom_certificate_digest",
+				"attestation_id",
+				"attestation_url"
+			],
+			"properties": {
+				"sbom_signing": { "$ref": "#/$defs/jobResult" },
+				"slsa_provenance": { "$ref": "#/$defs/provenanceStatus" },
+				"owasp_dependency_check": { "$ref": "#/$defs/evidenceStatus" },
+				"dependency_scan": { "$ref": "#/$defs/dependencyStatus" },
+				"artifact_digest": { "$ref": "#/$defs/digestOrUnknown" },
+				"sbom_digest": { "$ref": "#/$defs/digestOrUnknown" },
+				"sbom_signature_digest": { "$ref": "#/$defs/digestOrUnknown" },
+				"sbom_certificate_digest": { "$ref": "#/$defs/digestOrUnknown" },
+				"attestation_id": { "$ref": "#/$defs/stringOrUnknown" },
+				"attestation_url": {
+					"anyOf": [
+						{ "type": "string", "format": "uri" },
+						{ "const": "unknown" }
+					]
+				}
+			}
+		},
+		"jobs": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"secret",
+				"sast",
+				"dependency",
+				"container",
+				"openssf",
+				"owasp",
+				"supply_chain"
+			],
+			"properties": {
+				"secret": { "$ref": "#/$defs/jobResult" },
+				"sast": { "$ref": "#/$defs/jobResult" },
+				"dependency": { "$ref": "#/$defs/jobResult" },
+				"container": { "$ref": "#/$defs/jobResult" },
+				"openssf": { "$ref": "#/$defs/jobResult" },
+				"owasp": { "$ref": "#/$defs/jobResult" },
+				"supply_chain": { "$ref": "#/$defs/jobResult" }
+			}
+		},
+		"failed": {
+			"type": "string",
+			"pattern": "^(none|[a-z_]+(,[a-z_]+)*)$"
+		}
+	},
+	"$defs": {
+		"jobResult": {
+			"type": "string",
+			"enum": ["success", "failure", "cancelled", "skipped", "unknown"]
+		},
+		"evidenceStatus": {
+			"type": "string",
+			"enum": ["passed", "failed", "unknown", "not_requested"]
+		},
+		"provenanceStatus": {
+			"type": "string",
+			"enum": ["attested", "failed", "unknown", "not_requested"]
+		},
+		"dependencyStatus": {
+			"type": "string",
+			"enum": ["passed", "failed", "unknown", "not_applicable"]
+		},
+		"digestOrUnknown": {
+			"anyOf": [
+				{ "type": "string", "pattern": "^sha256:[0-9a-fA-F]{64}$" },
+				{ "const": "unknown" }
+			]
+		},
+		"stringOrUnknown": {
+			"type": "string",
+			"minLength": 1
+		}
+	}
+}

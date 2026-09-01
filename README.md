@@ -8,7 +8,7 @@ Current release: **[v0.2.5](https://github.com/acald-creator/security-compliance
 
 ## What it ships
 
-- **Reusable security scan** (`security-scan.yml`) — Gitleaks, TruffleHog, Semgrep, CodeQL, OWASP Dependency-Check, OSV Scanner, Trivy, Hadolint, Syft, Cosign, and OpenSSF Scorecard. Uploads `security-summary.json` (`acald-creator/security-compliance-hub/security-summary/v1`) for dashboard consumers.
+- **Reusable security scan** (`security-scan.yml`) — Gitleaks, TruffleHog, Semgrep, CodeQL, OWASP Dependency-Check, OSV Scanner, Trivy, Hadolint, Syft, Cosign, and OpenSSF Scorecard. Uploads `security-summary.json` (`acald-creator/security-compliance-hub/security-summary/v1`) for dashboard consumers; its contract is documented in [`schemas/security-summary-v1.schema.json`](schemas/security-summary-v1.schema.json).
 - **Reusable DevSecOps infinity loop** (`devsecops-infinity.yml`) — plan / code / build / test / release / deploy / operate / monitor, with security gates per phase.
 - **Stamp script** — `scripts/setup-repo-security.sh <path>` writes `security.yml`, Dependabot (ecosystems the target actually uses), Lefthook, `SECURITY.md`, and related templates. Always overwrites `security.yml` and `dependabot.yml`. Other files are skipped unless `FORCE_OVERWRITE=1`.
 - **Local tool installer** — Lefthook, Trivy, Gitleaks, and Semgrep on Linux or macOS.
@@ -110,7 +110,7 @@ Optional secrets: `NVD_API_KEY` (OWASP Dependency-Check NVD feed), `SNYK_TOKEN`,
 Semgrep and Trivy honor `severity-threshold`. OSV Scanner keeps its native exit
 policy, and OWASP Dependency-Check requires `NVD_API_KEY` when enabled.
 
-Outputs: `security-score`, `compliance-status`, `vulnerabilities` (comma-separated failed job names, or `none`), `provenance-status`, `owasp-dependency-check-status`, `dependency-scan-status`, `artifact-digest`, `sbom-digest`, and `attestation-url`. The `security-summary` artifact is `security-summary.json`.
+Outputs: `security-score`, `compliance-status`, `vulnerabilities` (comma-separated failed job names, or `none`), `provenance-status`, `owasp-dependency-check-status`, `dependency-scan-status`, `artifact-digest`, `sbom-digest`, and `attestation-url`. The `security-summary` artifact is `security-summary.json`; validate it against [`schemas/security-summary-v1.schema.json`](schemas/security-summary-v1.schema.json).
 
 Known limits of this suite:
 
@@ -202,6 +202,8 @@ security-compliance-hub/
 │   └── lib/
 │       ├── compliance.ts
 │       └── compliance.test.ts
+├── schemas/
+│   └── security-summary-v1.schema.json
 ├── templates/                      # SECURITY.md, insights, threat model
 ├── examples/target-repo-template/  # Copyable consumer files
 ├── hooks/lefthook.yml
