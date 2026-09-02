@@ -4,7 +4,7 @@ Reusable GitHub Actions that other repositories pin for secret scanning, SAST, S
 
 This is the enforce layer of a DevSecOps portfolio: stamp a repo, pin an immutable hub release, and let CI run the suite. Scoring and Showcase live in a separate operator console, not in this repository.
 
-Current release: **[v0.2.7](https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.7)**. New consumers should pin an exact release or commit SHA.
+Current release: **[v0.2.8](https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.8)**. New consumers should pin an exact release or commit SHA.
 
 ## What it ships
 
@@ -39,7 +39,7 @@ lefthook install
 Stamp another repository:
 
 ```bash
-SECURITY_HUB_REF=v0.2.7 ./scripts/setup-repo-security.sh /path/to/target-repo
+SECURITY_HUB_REF=v0.2.8 ./scripts/setup-repo-security.sh /path/to/target-repo
 # commit, push, then:
 gh workflow run security.yml --repo acald-creator/<repo> --ref main
 ```
@@ -96,7 +96,7 @@ permissions:
 
 jobs:
   security:
-    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0.2.7
+    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0.2.8
     with:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
@@ -111,7 +111,7 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
-    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0.2.7
+    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0.2.8
     with:
       phase: all
       # Required when a published image should be verified during deploy.
@@ -187,7 +187,7 @@ as policy inputs without scraping workflow logs.
 Consumers should pin, in order of preference:
 
 1. **Commit SHA** — `@<40-char-sha>`. Maximum reproducibility.
-2. **Exact release tag** — `@v0.2.7`. Immutable once published.
+2. **Exact release tag** — `@v0.2.8`. Immutable once published.
 3. **Moving major tag** — `@v0`. Receives non-breaking updates within the major line. Use only when that update policy is acceptable.
 
 Avoid `@main` in production.
