@@ -70,6 +70,6 @@ jobs:
     with:
       phase: release
       image: ${{ github.repository }}
-      image-tag: ${{ needs.build_image.outputs.image_tag }}
+      image-tag: fixture-static
       certificate-identity-regexp: '^https://github.com/acald-creator/security-compliance-hub/.github/workflows/.*@refs/heads/main$'
       require-image-verification: true
