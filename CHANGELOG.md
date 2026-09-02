@@ -9,6 +9,7 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+- Add a manual published-image fixture covering GHCR push, keyless signing, and strict digest verification.
 - Use the selected image tag for SBOM attestations and verify published images by their resolved immutable digest.
 
 ## [0.2.6] - 2026-09-01

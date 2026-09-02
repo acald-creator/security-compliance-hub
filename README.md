@@ -14,6 +14,7 @@ Current release: **[v0.2.6](https://github.com/acald-creator/security-compliance
 - **Local tool installer** — Lefthook, Trivy, Gitleaks, and Semgrep on Linux or macOS.
 - **HTML audit** — `bun run audit:all` walks GitHub repos via Octokit and writes `compliance-report.html` / `compliance-report.json`, including per-control evidence. That is not the Next.js inventory console (`acald-creator/dev-portfolio-dashboard`).
 - **Attestation fixture** — `.github/workflows/attestation-fixture.yml` manually exercises build artifact upload, SBOM signing, and SLSA provenance attestation.
+- **Published-image fixture** — `.github/workflows/image-verification-fixture.yml` manually builds a deterministic image, publishes it to GHCR, signs it with keyless Cosign, and verifies the resolved digest with a trusted workflow identity.
 
 The hub dogfoods via `.github/workflows/self-scan.yml`, not a root `security.yml`.
 

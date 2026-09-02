@@ -1,0 +1,88 @@
+name: Published Image Verification Fixture
+
+# Manual integration fixture for the build -> publish -> sign -> verify path.
+# This intentionally does not run on normal pushes because it publishes an
+# image and creates a keyless signature in the repository's GHCR namespace.
+on:
+  workflow_dispatch:
+    inputs:
+      image-tag:
+        description: 'Optional image tag; defaults to a unique fixture tag'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build-image:
+    name: Build and publish fixture image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.tag.outputs.image-tag }}
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select image tag
+        id: tag
+        env:
+          REQUESTED_TAG: ${{ inputs.image-tag }}
+        run: |
+          set -euo pipefail
+          tag="${REQUESTED_TAG:-fixture-${GITHUB_RUN_ID}}"
+          if [[ ! "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "::error::image-tag contains unsupported characters: $tag"
+            exit 1
+          fi
+          echo "image-tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        env:
+          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$CR_PAT" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push fixture image
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.image-tag }}
+        run: |
+          set -euo pipefail
+          image_ref="${IMAGE}:${IMAGE_TAG}"
+          docker build \
+            --file .github/fixtures/published-image/Dockerfile \
+            --tag "$image_ref" \
+            .
+          docker push "$image_ref"
+
+  sign-image:
+    name: Sign fixture image
+    needs: build-image
+    uses: ./.github/workflows/devsecops-infinity.yml
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    with:
+      phase: release
+      image: ${{ github.repository }}
+      image-tag: ${{ needs.build-image.outputs.image-tag }}
+
+  verify-image:
+    name: Verify fixture image by digest
+    needs: [build-image, sign-image]
+    uses: ./.github/workflows/devsecops-infinity.yml
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+    with:
+      phase: deploy
+      image: ${{ github.repository }}
+      image-tag: ${{ needs.build-image.outputs.image-tag }}
+      certificate-identity-regexp: '^https://github.com/acald-creator/security-compliance-hub/.github/workflows/.*@refs/heads/main$'
+      require-image-verification: true
