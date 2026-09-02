@@ -68,7 +68,7 @@ jobs:
       id-token: write
       packages: write
     with:
-      phase: release-verify
+      phase: release
       image: ${{ github.repository }}
       image-tag: ${{ needs.build_image.outputs.image_tag }}
       certificate-identity-regexp: '^https://github.com/acald-creator/security-compliance-hub/.github/workflows/.*@refs/heads/main$'
