@@ -56,7 +56,7 @@ jobs:
           docker build \
             --file .github/fixtures/published-image/Dockerfile \
             --tag "$image_ref" \
-            .
+            .github/fixtures/published-image
           docker push "$image_ref"
 
   image_security:
