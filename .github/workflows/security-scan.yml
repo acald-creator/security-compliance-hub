@@ -484,6 +484,8 @@ jobs:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
     if: contains(inputs.compliance-frameworks, 'openssf')
+    outputs:
+      upload_status: ${{ steps.record_scorecard_upload.outputs.status }}
     permissions:
       security-events: write
       id-token: write
@@ -499,6 +501,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Run Scorecard
+        id: run_scorecard
         uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
         with:
           results_file: scorecard.sarif
@@ -509,10 +512,43 @@ jobs:
           publish_results: false
 
       - name: Upload to Security Tab
+        id: upload_scorecard
+        # Scorecard supports private repositories with GitHub Advanced
+        # Security. Without GHAS, retain the local SARIF artifact but do not
+        # fail the entire reusable scan on the unavailable upload endpoint.
+        continue-on-error: ${{ github.event.repository.visibility == 'private' }}
         uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           sarif_file: scorecard.sarif
           category: scorecard
+
+      - name: Record Scorecard upload status
+        id: record_scorecard_upload
+        if: always()
+        env:
+          SCORECARD_OUTCOME: ${{ steps.run_scorecard.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload_scorecard.outcome }}
+          REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        run: |
+          set -euo pipefail
+          if [ "$SCORECARD_OUTCOME" != "success" ] || [ "$UPLOAD_OUTCOME" = "failure" ]; then
+            if [ "$SCORECARD_OUTCOME" = "success" ] && [ "$REPOSITORY_VISIBILITY" = "private" ]; then
+              status="unknown"
+            else
+              status="failed"
+            fi
+          else
+            status="passed"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "Scorecard upload status: $status"
+
+      - name: Preserve Scorecard SARIF
+        if: always() && hashFiles('scorecard.sarif') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard-sarif
+          path: scorecard.sarif
 
   # ✅ OWASP Compliance
   #
@@ -622,6 +658,7 @@ jobs:
           DEPS: ${{ needs.dependency-scan.result }}
           CONTAINER: ${{ needs.container-scan.result }}
           OPENSFF: ${{ needs.openssf-scorecard.result }}
+          OPENSFF_UPLOAD: ${{ needs.openssf-scorecard.outputs.upload_status }}
           OWASP: ${{ needs.owasp-check.result }}
           SUPPLY: ${{ needs.supply-chain.result }}
           SIGNING: ${{ inputs.enable-signing }}
@@ -663,9 +700,13 @@ jobs:
           TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
 
           if framework_enabled openssf; then
-            if [ "$OPENSFF" = "success" ]; then SCORE=$((SCORE + 15)); fi
+            if [ "${OPENSFF_UPLOAD:-unknown}" = "passed" ]; then SCORE=$((SCORE + 15)); fi
             TOTAL_CHECKS=$((TOTAL_CHECKS + 15))
-            OPENSSF_STATUS="$OPENSFF"
+            case "${OPENSFF_UPLOAD:-unknown}" in
+              passed) OPENSSF_STATUS="success" ;;
+              failed) OPENSSF_STATUS="failure" ;;
+              *) OPENSSF_STATUS="unknown" ;;
+            esac
           else
             OPENSSF_STATUS="not_requested"
           fi

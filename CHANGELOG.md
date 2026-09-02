@@ -9,6 +9,11 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-09-01
+
+- Preserve Scorecard SARIF for private repositories without GitHub Advanced
+  Security while recording the unavailable Security-tab upload as unknown.
+
 ## [0.2.9] - 2026-09-01
 
 - Grant private-repository read permissions required by CodeQL SARIF uploads
@@ -185,7 +190,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.9...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.10...HEAD
+[0.2.10]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.10
 [0.2.9]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.9
 [0.2.8]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.8
 [0.2.7]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.7
