@@ -126,6 +126,8 @@ jobs:
   sast-scan:
     name: SAST Analysis
     runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.record_sast_status.outputs.status }}
     permissions:
       security-events: write
       contents: read
@@ -191,7 +193,12 @@ jobs:
           languages: ${{ steps.langs.outputs.list }}
 
       - name: Perform CodeQL Analysis
+        id: codeql_analysis
         if: steps.langs.outputs.has == 'true' && steps.default_setup.outputs.enabled != 'true'
+        # Private repositories without GitHub Advanced Security can run the
+        # analyzer but cannot upload its SARIF. Preserve the local Semgrep
+        # evidence and record CodeQL as unknown in that case.
+        continue-on-error: ${{ github.event.repository.visibility == 'private' }}
         uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
 
       - name: Set up Python for Semgrep
@@ -201,6 +208,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install and run Semgrep
+        id: semgrep
         if: always()
         env:
           THRESHOLD: ${{ inputs.severity-threshold }}
@@ -221,11 +229,48 @@ jobs:
           semgrep "${SEMGREP_ARGS[@]}" --error
 
       - name: Upload Semgrep SARIF
+        id: upload_semgrep
+        # Private repositories without GitHub Advanced Security cannot use
+        # the code-scanning SARIF endpoint. The scanner itself still fails on
+        # findings; only the optional Security-tab upload is best effort.
+        continue-on-error: ${{ github.event.repository.visibility == 'private' }}
         uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
           category: semgrep
+
+      - name: Record SAST status
+        id: record_sast_status
+        if: always()
+        env:
+          REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+          CODEQL_OUTCOME: ${{ steps.codeql_analysis.outcome || 'skipped' }}
+          SEMGREP_OUTCOME: ${{ steps.semgrep.outcome || 'unknown' }}
+          SEMGREP_UPLOAD_OUTCOME: ${{ steps.upload_semgrep.outcome || 'skipped' }}
+        run: |
+          set -euo pipefail
+          if [ "$SEMGREP_OUTCOME" = "failure" ]; then
+            status="failed"
+          elif [ "$REPOSITORY_VISIBILITY" = "private" ] && {
+            [ "$CODEQL_OUTCOME" = "failure" ] ||
+            [ "$SEMGREP_UPLOAD_OUTCOME" = "failure" ];
+          }; then
+            status="unknown"
+          elif [ "$SEMGREP_OUTCOME" = "success" ]; then
+            status="passed"
+          else
+            status="unknown"
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "SAST status: $status"
+
+      - name: Preserve Semgrep SARIF
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sast-semgrep-sarif
+          path: semgrep.sarif
 
   # 📦 Dependency Scanning
   dependency-scan:
@@ -535,10 +580,10 @@ jobs:
             if [ "$SCORECARD_OUTCOME" = "success" ] && [ "$REPOSITORY_VISIBILITY" = "private" ]; then
               status="unknown"
             else
-              status="failed"
+              status="failure"
             fi
           else
-            status="passed"
+            status="success"
           fi
           echo "status=$status" >> "$GITHUB_OUTPUT"
           echo "Scorecard upload status: $status"
@@ -661,6 +706,7 @@ jobs:
           OPENSFF_UPLOAD: ${{ needs.openssf-scorecard.outputs.upload_status }}
           OWASP: ${{ needs.owasp-check.result }}
           SUPPLY: ${{ needs.supply-chain.result }}
+          SAST_EVIDENCE: ${{ needs.sast-scan.outputs.status }}
           SIGNING: ${{ inputs.enable-signing }}
           SLSA: ${{ needs.supply-chain.outputs.provenance_status }}
           OWASP_EVIDENCE: ${{ needs.owasp-check.outputs.dependency_check_status }}
@@ -690,8 +736,23 @@ jobs:
           if [ "$SECRET" = "success" ]; then SCORE=$((SCORE + 20)); fi
           TOTAL_CHECKS=$((TOTAL_CHECKS + 20))
 
-          if [ "$SAST" = "success" ]; then SCORE=$((SCORE + 25)); fi
-          TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
+          SAST_STATUS="${SAST_EVIDENCE:-$SAST}"
+          case "$SAST_STATUS" in
+            success)
+              SCORE=$((SCORE + 25))
+              TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
+              ;;
+            failure)
+              TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
+              ;;
+            unknown)
+              ;;
+            *)
+              SAST_STATUS="$SAST"
+              TOTAL_CHECKS=$((TOTAL_CHECKS + 25))
+              if [ "$SAST" = "success" ]; then SCORE=$((SCORE + 25)); fi
+              ;;
+          esac
 
           if [ "$DEPS_EVIDENCE" = "passed" ]; then SCORE=$((SCORE + 25)); fi
           if [ "$DEPS_EVIDENCE" != "not_applicable" ]; then TOTAL_CHECKS=$((TOTAL_CHECKS + 25)); fi
@@ -774,7 +835,7 @@ jobs:
             },
             "jobs": {
               "secret": "$SECRET",
-              "sast": "$SAST",
+              "sast": "$SAST_STATUS",
               "dependency": "$DEPS",
               "container": "$CONTAINER",
               "openssf": "$OPENSFF",

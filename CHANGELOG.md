@@ -9,6 +9,12 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-09-01
+
+- Treat unavailable private-repository CodeQL and SARIF upload endpoints as
+  `unknown`, preserve Semgrep SARIF evidence, and exclude unavailable SAST
+  evidence from the score denominator while still failing on scanner findings.
+
 ## [0.2.10] - 2026-09-01
 
 - Preserve Scorecard SARIF for private repositories without GitHub Advanced
@@ -190,7 +196,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.10...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.11...HEAD
+[0.2.11]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.11
 [0.2.10]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.10
 [0.2.9]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.9
 [0.2.8]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.8
