@@ -9,6 +9,11 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-09-01
+
+- Emit contract-compatible `success`/`failure` SAST job statuses when private
+  repository evidence is available or fails.
+
 ## [0.2.11] - 2026-09-01
 
 - Treat unavailable private-repository CodeQL and SARIF upload endpoints as
@@ -196,7 +201,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.11...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.12...HEAD
+[0.2.12]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.12
 [0.2.11]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.11
 [0.2.10]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.10
 [0.2.9]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.9

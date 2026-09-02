@@ -258,7 +258,7 @@ jobs:
           }; then
             status="unknown"
           elif [ "$SEMGREP_OUTCOME" = "success" ]; then
-            status="passed"
+            status="success"
           else
             status="unknown"
           fi

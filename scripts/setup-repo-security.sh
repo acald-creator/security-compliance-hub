@@ -5,7 +5,7 @@ set -e
 
 REPO_PATH=${1:-.}
 SECURITY_HUB_URL="https://github.com/acald-creator/security-compliance-hub"
-SECURITY_HUB_REF=${SECURITY_HUB_REF:-v0.2.11}
+SECURITY_HUB_REF=${SECURITY_HUB_REF:-v0.2.12}
 
 if [[ ! "$SECURITY_HUB_REF" =~ ^[A-Za-z0-9._/-]+$ ]]; then
   echo "❌ SECURITY_HUB_REF contains unsupported characters: $SECURITY_HUB_REF" >&2
