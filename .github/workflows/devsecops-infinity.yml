@@ -213,11 +213,7 @@ jobs:
 
   # ♾️ DEPLOY - Secure Deployment
   deploy-phase:
-    needs: release-phase
-    if: >-
-      always() &&
-      (inputs.phase == 'deploy' || inputs.phase == 'release-verify' || inputs.phase == 'all') &&
-      (inputs.phase == 'deploy' || needs.release-phase.result == 'success')
+    if: inputs.phase == 'deploy' || inputs.phase == 'release-verify' || inputs.phase == 'all'
     runs-on: ubuntu-latest
     outputs:
       image_verification_status: ${{ steps.record_image_verification.outputs.status }}
