@@ -79,7 +79,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
-      packages: read
+      # The shared workflow declares packages: write for its release job;
+      # GitHub validates the caller ceiling before evaluating phase: deploy.
+      packages: write
     with:
       phase: deploy
       image: ${{ github.repository }}
