@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       phase:
-        description: 'Current phase in DevSecOps loop'
+        description: 'Current phase in DevSecOps loop, or release-verify for sequential signing and verification'
         required: true
         type: string
       registry:
@@ -169,7 +169,7 @@ jobs:
 
   # ♾️ RELEASE - Signing & Attestation
   release-phase:
-    if: inputs.phase == 'release' || inputs.phase == 'all'
+    if: inputs.phase == 'release' || inputs.phase == 'release-verify' || inputs.phase == 'all'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -213,7 +213,11 @@ jobs:
 
   # ♾️ DEPLOY - Secure Deployment
   deploy-phase:
-    if: inputs.phase == 'deploy' || inputs.phase == 'all'
+    needs: release-phase
+    if: >-
+      always() &&
+      (inputs.phase == 'deploy' || inputs.phase == 'release-verify' || inputs.phase == 'all') &&
+      (inputs.phase == 'deploy' || needs.release-phase.result == 'success')
     runs-on: ubuntu-latest
     outputs:
       image_verification_status: ${{ steps.record_image_verification.outputs.status }}

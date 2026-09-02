@@ -142,7 +142,7 @@ with one record per control. Every record has a `status` (`pass`, `fail`,
 
 | Input | Default | Description |
 |---|---|---|
-| `phase` | (required) | `plan`, `code`, `build`, `test`, `release`, `deploy`, `operate`, `monitor`, or `all` |
+| `phase` | (required) | `plan`, `code`, `build`, `test`, `release`, `release-verify`, `deploy`, `operate`, `monitor`, or `all` |
 | `registry` | `ghcr.io` | Container registry hostname used by release/deploy Cosign steps |
 | `image` | `${{ github.repository }}` | Image path within the registry |
 | `image-tag` | `${{ github.sha }}` | Image tag to sign or verify |

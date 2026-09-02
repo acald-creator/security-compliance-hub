@@ -59,8 +59,8 @@ jobs:
             .
           docker push "$image_ref"
 
-  sign_image:
-    name: Sign fixture image
+  image_security:
+    name: Sign and verify fixture image
     needs: build_image
     uses: ./.github/workflows/devsecops-infinity.yml
     permissions:
@@ -68,22 +68,7 @@ jobs:
       id-token: write
       packages: write
     with:
-      phase: release
-      image: ${{ github.repository }}
-      image-tag: ${{ needs.build_image.outputs.image_tag }}
-
-  verify_image:
-    name: Verify fixture image by digest
-    needs: [build_image, sign_image]
-    uses: ./.github/workflows/devsecops-infinity.yml
-    permissions:
-      contents: read
-      id-token: write
-      # The shared workflow declares packages: write for its release job;
-      # GitHub validates the caller ceiling before evaluating phase: deploy.
-      packages: write
-    with:
-      phase: deploy
+      phase: release-verify
       image: ${{ github.repository }}
       image-tag: ${{ needs.build_image.outputs.image_tag }}
       certificate-identity-regexp: '^https://github.com/acald-creator/security-compliance-hub/.github/workflows/.*@refs/heads/main$'
