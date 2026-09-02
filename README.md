@@ -90,7 +90,8 @@ permissions:
   packages: write
   security-events: write
   pull-requests: write
-  # Required only when artifact-path is configured below.
+  # Required by the reusable supply-chain job; needed even when the optional
+  # artifact attestation path below is not configured.
   attestations: write
 
 jobs:

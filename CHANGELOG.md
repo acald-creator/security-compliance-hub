@@ -9,6 +9,9 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+- Require callers to grant `attestations: write` so the reusable supply-chain
+  job can start and GitHub can validate its permission contract.
+
 ## [0.2.7] - 2026-09-01
 
 - Add a manual published-image fixture covering GHCR push, keyless signing, and strict digest verification.
