@@ -129,6 +129,7 @@ jobs:
     permissions:
       security-events: write
       contents: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -487,8 +488,13 @@ jobs:
       security-events: write
       id-token: write
       contents: read
-      # Do not request `actions: read` here. Called jobs cannot exceed the
-      # caller's token permissions; typical consumers do not grant `actions`.
+      # Private repositories need these read permissions for Scorecard's
+      # GraphQL commit and repository-configuration checks. The SARIF upload
+      # also needs actions: read in private repositories.
+      actions: read
+      issues: read
+      pull-requests: read
+      checks: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

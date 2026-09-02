@@ -9,6 +9,13 @@ consumers should pin references to these workflows.
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-09-01
+
+- Grant private-repository read permissions required by CodeQL SARIF uploads
+  and OpenSSF Scorecard checks.
+- Preserve `contents: read` in the Infinity release job so its checkout can
+  run when job-level signing permissions are applied.
+
 ## [0.2.8] - 2026-09-01
 
 - Require callers to grant `attestations: write` so the reusable supply-chain
@@ -178,7 +185,8 @@ the CI/release plumbing that future versions build on.
   every commit; removed empty `commit-msg: commands:` block that broke
   `lefthook validate`.
 
-[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/acald-creator/security-compliance-hub/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.9
 [0.2.8]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.8
 [0.2.7]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.7
 [0.2.6]: https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.6

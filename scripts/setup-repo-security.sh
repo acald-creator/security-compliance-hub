@@ -5,7 +5,7 @@ set -e
 
 REPO_PATH=${1:-.}
 SECURITY_HUB_URL="https://github.com/acald-creator/security-compliance-hub"
-SECURITY_HUB_REF=${SECURITY_HUB_REF:-v0.2.8}
+SECURITY_HUB_REF=${SECURITY_HUB_REF:-v0.2.9}
 
 if [[ ! "$SECURITY_HUB_REF" =~ ^[A-Za-z0-9._/-]+$ ]]; then
   echo "❌ SECURITY_HUB_REF contains unsupported characters: $SECURITY_HUB_REF" >&2
@@ -123,13 +123,16 @@ name: Security Compliance
 # workflow will grant these permissions in their repo; remove or restrict
 # these if you do not want to allow write operations from the workflow.
 permissions:
+  actions: read
   id-token: write
   contents: read
+  checks: read
+  issues: read
   packages: write
   security-events: write
   pull-requests: write
-  # Uncomment when artifact-path is configured below.
-  # attestations: write
+  # Required by the reusable supply-chain job even when artifact-path is not configured.
+  attestations: write
 
 on:
   push:
@@ -194,13 +197,16 @@ name: Security Compliance
 # workflow will grant these permissions in their repo; remove or restrict
 # these if you do not want to allow write operations from the workflow.
 permissions:
+  actions: read
   id-token: write
   contents: read
+  checks: read
+  issues: read
   packages: write
   security-events: write
   pull-requests: write
-  # Uncomment when artifact-path is configured below.
-  # attestations: write
+  # Required by the reusable supply-chain job even when artifact-path is not configured.
+  attestations: write
 
 on:
   push:

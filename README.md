@@ -4,7 +4,7 @@ Reusable GitHub Actions that other repositories pin for secret scanning, SAST, S
 
 This is the enforce layer of a DevSecOps portfolio: stamp a repo, pin an immutable hub release, and let CI run the suite. Scoring and Showcase live in a separate operator console, not in this repository.
 
-Current release: **[v0.2.8](https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.8)**. New consumers should pin an exact release or commit SHA.
+Current release: **[v0.2.9](https://github.com/acald-creator/security-compliance-hub/releases/tag/v0.2.9)**. New consumers should pin an exact release or commit SHA.
 
 ## What it ships
 
@@ -39,7 +39,7 @@ lefthook install
 Stamp another repository:
 
 ```bash
-SECURITY_HUB_REF=v0.2.8 ./scripts/setup-repo-security.sh /path/to/target-repo
+SECURITY_HUB_REF=v0.2.9 ./scripts/setup-repo-security.sh /path/to/target-repo
 # commit, push, then:
 gh workflow run security.yml --repo acald-creator/<repo> --ref main
 ```
@@ -70,7 +70,10 @@ permission contract.
 
 ## Using the reusable workflows
 
-Callers need `security-events: write` and `pull-requests: write`. Pass optional secrets **by name**, not `secrets: inherit` (Semgrep flags inherit on every consumer).
+Callers need `actions: read`, `contents: read`, `checks: read`,
+`issues: read`, `security-events: write`, and `pull-requests: write`.
+Pass optional secrets **by name**, not `secrets: inherit` (Semgrep flags
+inherit on every consumer).
 
 ```yaml
 name: Security Compliance
@@ -84,8 +87,11 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   id-token: write
   contents: read
+  checks: read
+  issues: read
   # Required by devsecops-infinity's release phase when it signs/publishes an image.
   packages: write
   security-events: write
@@ -96,7 +102,7 @@ permissions:
 
 jobs:
   security:
-    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0.2.8
+    uses: acald-creator/security-compliance-hub/.github/workflows/security-scan.yml@v0.2.9
     with:
       severity-threshold: HIGH
       compliance-frameworks: openssf,owasp,slsa
@@ -111,7 +117,7 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   devsecops:
-    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0.2.8
+    uses: acald-creator/security-compliance-hub/.github/workflows/devsecops-infinity.yml@v0.2.9
     with:
       phase: all
       # Required when a published image should be verified during deploy.
@@ -143,7 +149,7 @@ For a host-level consumer, use the [Nexus mapping](docs/nexus-security-summary-m
 
 Known limits of this suite:
 
-- Scorecard uploads SARIF to the GitHub Security tab with `publish_results: false` (OpenSSF rejects publishing from a workflow that also grants `id-token` to Cosign). Do not request `actions: read` on the Scorecard job.
+- Scorecard uploads SARIF to the GitHub Security tab with `publish_results: false` (OpenSSF rejects publishing from a workflow that also grants `id-token` to Cosign). Private-repository consumers must retain the read permissions shown above for Scorecard and SARIF processing.
 - SBOM signing and SLSA provenance are separate controls. SBOM signing runs when enabled; SLSA provenance is `not_requested` unless the caller supplies `artifact-path` and grants `attestations: write`.
 - The reusable workflow uses GitHub Artifact Attestations for caller-supplied artifacts. It does not infer an artifact from a source checkout.
 - For build outputs, the caller should upload an artifact in a job that the security job `needs`, then pass both `artifact-name` and the path inside the downloaded artifact.
@@ -187,7 +193,7 @@ as policy inputs without scraping workflow logs.
 Consumers should pin, in order of preference:
 
 1. **Commit SHA** — `@<40-char-sha>`. Maximum reproducibility.
-2. **Exact release tag** — `@v0.2.8`. Immutable once published.
+2. **Exact release tag** — `@v0.2.9`. Immutable once published.
 3. **Moving major tag** — `@v0`. Receives non-breaking updates within the major line. Use only when that update policy is acceptable.
 
 Avoid `@main` in production.

@@ -35,6 +35,9 @@ jobs:
     uses: ./.github/workflows/security-scan.yml
     permissions:
       contents: read
+      actions: read
+      issues: read
+      checks: read
       id-token: write
       attestations: write
       security-events: write
