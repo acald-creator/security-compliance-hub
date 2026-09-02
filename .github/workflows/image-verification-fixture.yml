@@ -59,7 +59,7 @@ jobs:
             .
           docker push "$image_ref"
 
-  sign-image:
+  sign_image:
     name: Sign fixture image
     needs: build_image
     uses: ./.github/workflows/devsecops-infinity.yml
@@ -72,9 +72,9 @@ jobs:
       image: ${{ github.repository }}
       image-tag: ${{ needs.build_image.outputs.image_tag }}
 
-  verify-image:
+  verify_image:
     name: Verify fixture image by digest
-    needs: [build_image, sign-image]
+    needs: [build_image, sign_image]
     uses: ./.github/workflows/devsecops-infinity.yml
     permissions:
       contents: read
