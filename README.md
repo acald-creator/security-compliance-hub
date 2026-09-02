@@ -138,6 +138,8 @@ policy, and OWASP Dependency-Check requires `NVD_API_KEY` when enabled.
 
 Outputs: `security-score`, `compliance-status`, `vulnerabilities` (comma-separated failed job names, or `none`), `provenance-status`, `owasp-dependency-check-status`, `dependency-scan-status`, `artifact-digest`, `sbom-digest`, and `attestation-url`. The `security-summary` artifact is `security-summary.json`; validate it against [`schemas/security-summary-v1.schema.json`](schemas/security-summary-v1.schema.json).
 
+For a host-level consumer, use the [Nexus mapping](docs/nexus-security-summary-mapping.md). It defines the immutable repository/commit subject key, provenance checks, and the distinction between failure, unknown, not-requested, and not-applicable evidence.
+
 Known limits of this suite:
 
 - Scorecard uploads SARIF to the GitHub Security tab with `publish_results: false` (OpenSSF rejects publishing from a workflow that also grants `id-token` to Cosign). Do not request `actions: read` on the Scorecard job.
@@ -238,6 +240,8 @@ security-compliance-hub/
 │       └── compliance.test.ts
 ├── schemas/
 │   └── security-summary-v1.schema.json
+├── docs/
+│   └── nexus-security-summary-mapping.md
 ├── templates/                      # SECURITY.md, insights, threat model
 ├── examples/target-repo-template/  # Copyable consumer files
 ├── hooks/lefthook.yml

@@ -72,7 +72,7 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 | Infinity image signing/verification only supported the current commit tag | Fixed: callers can provide `image-tag`; the commit SHA remains the default |
 | Nested SLSA generic generator `base64-subjects` is still a commit SHA, not artifact hashes | **Resolved for caller-supplied artifacts** — GitHub Artifact Attestations now emits provenance when `artifact-path` and `attestations: write` are provided; source-only scans remain `not_requested` |
 | Gitleaks Action license on some orgs | **Open** — personal public repos OK with `GITHUB_TOKEN` |
-| Nexus evidence mapping | **In progress** — `security-summary/v1` has a checked-in JSON Schema; consumer field mapping remains to be implemented in the portfolio Nexus layer |
+| Nexus evidence mapping | **In progress** — schema and hub-side mapping are documented in `docs/nexus-security-summary-mapping.md`; the portfolio Nexus adapter remains to be implemented |
 | Published-image verification fixture | **Resolved on main** — manual GHCR build, keyless Cosign signing, tag-to-digest resolution, and trusted-identity verification passed end-to-end |
 | Self-scan dogfood: TruffleHog BASE==HEAD, OSV missing `runs:`, OWASP NVD key, Scorecard publish | Fixed in `v0.2.1` |
 
