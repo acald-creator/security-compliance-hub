@@ -2,7 +2,7 @@
 
 **Original audit:** 2026-04-11 (Claude Code)
 **0.1.0 close-out:** 2026-04-18
-**0.2 status:** 2026-08-21 — remaining consumer-contract work on `revamp/0.2-consumer-contract`
+**0.2 status:** 2026-09-01 — `v0.2.6` is published; post-release main work includes the published-image verification fixture
 
 This file is a working log, not a forever-open bug list. Items marked **resolved** shipped in `0.1.0` unless noted.
 
@@ -72,14 +72,14 @@ These blocked stamping the hub onto portfolio repos and later Nexus:
 | Infinity image signing/verification only supported the current commit tag | Fixed: callers can provide `image-tag`; the commit SHA remains the default |
 | Nested SLSA generic generator `base64-subjects` is still a commit SHA, not artifact hashes | **Resolved for caller-supplied artifacts** — GitHub Artifact Attestations now emits provenance when `artifact-path` and `attestations: write` are provided; source-only scans remain `not_requested` |
 | Gitleaks Action license on some orgs | **Open** — personal public repos OK with `GITHUB_TOKEN` |
-| Nexus evidence mapping | **In progress** — `security-summary/v1` now has a checked-in JSON Schema; consumer field mapping remains in portfolio `docs/system-workflow.md` Layer 4 |
+| Nexus evidence mapping | **In progress** — `security-summary/v1` has a checked-in JSON Schema; consumer field mapping remains to be implemented in the portfolio Nexus layer |
+| Published-image verification fixture | **Resolved on main** — manual GHCR build, keyless Cosign signing, tag-to-digest resolution, and trusted-identity verification passed end-to-end |
 | Self-scan dogfood: TruffleHog BASE==HEAD, OSV missing `runs:`, OWASP NVD key, Scorecard publish | Fixed in `v0.2.1` |
 
 ---
 
-## Recommended next after 0.2 merge
+## Recommended next work
 
-1. Tag `v0.2.0` only after CI (and a `workflow_dispatch` self-scan) is green.
-2. Stamp onto 5–10 public originals, not every fork.
-3. Run the manual attestation fixture and add a published-image fixture for strict Cosign verification.
-4. Then expand Underground Nexus as a host-level consumer of `security-summary/v1`.
+1. Map `security-summary/v1` fields into the portfolio Nexus consumer, including required fields, optional evidence, and `unknown` / `not_applicable` handling.
+2. Stamp the hub onto 5–10 public original repositories, not every fork, and collect their summary artifacts as consumer fixtures.
+3. Cut the next release after the post-`v0.2.6` workflow changes are reviewed; include the published-image fixture and sequential `release-verify` phase.

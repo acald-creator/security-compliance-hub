@@ -44,6 +44,30 @@ SECURITY_HUB_REF=v0.2.6 ./scripts/setup-repo-security.sh /path/to/target-repo
 gh workflow run security.yml --repo acald-creator/<repo> --ref main
 ```
 
+### Run the integration fixtures
+
+The fixtures are manual integration tests for the two supply-chain paths that
+need a real GitHub runner: artifact provenance and published-image verification.
+Run the published-image fixture from the hub repository with:
+
+```bash
+gh workflow run image-verification-fixture.yml \
+  --repo acald-creator/security-compliance-hub \
+  --ref main
+gh run list --workflow image-verification-fixture.yml \
+  --repo acald-creator/security-compliance-hub --limit 1
+gh run watch <run-id> --repo acald-creator/security-compliance-hub --exit-status
+```
+
+It builds a deterministic `scratch` image, pushes it to GHCR under a unique
+fixture tag, signs that tag with keyless Cosign, resolves the published digest,
+and verifies the digest against the trusted GitHub Actions certificate identity.
+The run therefore exercises the same tag-to-digest boundary a consumer uses in
+the `release-verify` and `deploy` phases. The workflow requires a token with
+`packages: write` and `id-token: write`; its reusable-workflow caller also
+declares `security-events: read` so GitHub can validate the called workflow's
+permission contract.
+
 ## Using the reusable workflows
 
 Callers need `security-events: write` and `pull-requests: write`. Pass optional secrets **by name**, not `secrets: inherit` (Semgrep flags inherit on every consumer).
