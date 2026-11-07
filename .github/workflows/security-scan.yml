@@ -217,13 +217,16 @@ jobs:
           pip install --quiet semgrep
           SEMGREP_ARGS=(--sarif --output=semgrep.sarif)
           SEMGREP_ARGS+=(--config=p/security-audit --config=p/owasp-top-ten --config=p/r2c-security-audit)
-          # Cap per-file memory and worker count so a single pathological file
-          # cannot push semgrep-core past the runner's RAM and get OOM-killed
-          # ("the engine was killed ... used too much memory"), which fails this
-          # job with zero findings. Over the limit, semgrep skips the file with a
-          # warning instead of crashing. Tuned for the 16 GB / 4-vCPU
-          # GitHub-hosted runner (2 workers x 4 GB leaves headroom).
-          SEMGREP_ARGS+=(--max-memory=4000 --jobs=2)
+          # Exclude three generic/multilang rules that crash semgrep-core with a
+          # SIGSEGV ("semgrep-core exited with -11", reported as "the engine was
+          # killed ... used too much memory") on native x86 GitHub runners. The
+          # fault is in generic-mode matching (spacegrep/aliengrep), not a target
+          # file or memory — it reproduces with zero findings across any content
+          # and fails the job. Dropping these generic rules keeps every
+          # language-specific rule (the bulk of the SAST signal) intact.
+          SEMGREP_ARGS+=(--exclude-rule=generic.secrets.security.detected-username-and-password-in-uri.detected-username-and-password-in-uri)
+          SEMGREP_ARGS+=(--exclude-rule=generic.ci.security.bash-reverse-shell.bash_reverse_shell)
+          SEMGREP_ARGS+=(--exclude-rule=generic.secrets.security.detected-stripe-restricted-api-key.detected-stripe-restricted-api-key)
           if [ -d "./policies/semgrep" ]; then
             SEMGREP_ARGS+=(--config=./policies/semgrep/)
           fi
