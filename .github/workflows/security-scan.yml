@@ -217,6 +217,13 @@ jobs:
           pip install --quiet semgrep
           SEMGREP_ARGS=(--sarif --output=semgrep.sarif)
           SEMGREP_ARGS+=(--config=p/security-audit --config=p/owasp-top-ten --config=p/r2c-security-audit)
+          # Cap per-file memory and worker count so a single pathological file
+          # cannot push semgrep-core past the runner's RAM and get OOM-killed
+          # ("the engine was killed ... used too much memory"), which fails this
+          # job with zero findings. Over the limit, semgrep skips the file with a
+          # warning instead of crashing. Tuned for the 16 GB / 4-vCPU
+          # GitHub-hosted runner (2 workers x 4 GB leaves headroom).
+          SEMGREP_ARGS+=(--max-memory=4000 --jobs=2)
           if [ -d "./policies/semgrep" ]; then
             SEMGREP_ARGS+=(--config=./policies/semgrep/)
           fi
